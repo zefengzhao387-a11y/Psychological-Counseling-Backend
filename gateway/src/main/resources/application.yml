@@ -1,0 +1,44 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: gateway
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+      config:
+        server-addr: localhost:8848
+        file-extension: yaml
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        # user-service
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/v1/user/**
+        # appointment-service
+        - id: appointment-service
+          uri: lb://appointment-service
+          predicates:
+            - Path=/api/v1/appointment/**
+        # consultation-service
+        - id: consultation-service
+          uri: lb://consultation-service
+          predicates:
+            - Path=/api/v1/consultation/**
+        # statistics-service
+        - id: statistics-service
+          uri: lb://statistics-service
+          predicates:
+            - Path=/api/v1/statistics/**
+        # notification-service
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/api/v1/notification/**

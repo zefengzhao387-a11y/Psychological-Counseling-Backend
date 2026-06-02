@@ -1,0 +1,11 @@
+org\example\user\config\MyMetaObjectHandler.class
+org\example\user\dto\LoginDTO.class
+org\example\user\dto\LoginVO$LoginVOBuilder.class
+org\example\user\service\SysUserService.class
+org\example\user\config\SecurityConfig.class
+org\example\user\dto\LoginVO.class
+org\example\user\service\impl\SysUserServiceImpl.class
+org\example\user\controller\AuthController.class
+org\example\user\UserServiceApplication.class
+org\example\user\mapper\SysUserMapper.class
+org\example\user\entity\SysUser.class
