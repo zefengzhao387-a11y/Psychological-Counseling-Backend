@@ -2,11 +2,10 @@ package org.example.appointment.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
-import org.example.appointment.dto.AppointmentAddDTO;
-import org.example.appointment.dto.AppointmentVO;
-import org.example.appointment.dto.RescheduleDTO;
-import org.example.appointment.dto.ReviewDTO;
+import org.example.appointment.dto.*;
 import org.example.appointment.entity.FirstVisitAppointment;
+
+import java.util.List;
 
 public interface FirstVisitAppointmentService extends IService<FirstVisitAppointment> {
 
@@ -33,8 +32,23 @@ public interface FirstVisitAppointmentService extends IService<FirstVisitAppoint
     /** 改约 */
     void reschedule(RescheduleDTO dto);
 
-    /** 管理员新增预约 */
+    /**
+     * 管理员按学号/姓名新增预约并自动匹配空闲初访员
+     * - 支持 keyword 搜索匹配学生
+     * - 若未指定初访员，自动匹配该时段预约数最少的空闲初访员
+     */
     void addAppointment(AppointmentAddDTO dto, Long adminId);
+
+    /** 按关键词搜索学生（学号/姓名模糊匹配） */
+    List<StudentSearchVO> searchStudent(String keyword);
+
+    /**
+     * 管理员补录备班（为未线上预约的来访学生手动补录）
+     * - 支持 keyword 查找已有学生或直接填写学生信息
+     * - 自动匹配空闲初访员（优先指定初访员）
+     * - 若该时段无值班安排则自动创建备班记录
+     */
+    void backupAppointment(BackupAppointmentDTO dto, Long adminId);
 
     /** 获取学生自己的预约列表 */
     Page<AppointmentVO> myAppointments(Integer page, Integer size, Long studentId);

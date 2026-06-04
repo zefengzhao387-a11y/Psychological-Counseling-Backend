@@ -25,6 +25,24 @@ public interface DutyScheduleService extends IService<DutySchedule> {
     /** 预约数-1 */
     void decrementBooked(Long scheduleId);
 
-    /** 匹配空闲初访员 */
+    /** 匹配空闲初访员，返回 dutyScheduleId */
     Long matchVisitor(AppointmentAddDTO dto);
+
+    /**
+     * 自动匹配某日某时段的空闲初访员（补录备班用）
+     * @param date        预约日期
+     * @param timeSlotId  时间段ID
+     * @param preferVisitorId 优先匹配的初访员ID（可为null）
+     * @return 匹配到的值班安排ID
+     */
+    Long matchAvailableVisitor(LocalDate date, Long timeSlotId, Long preferVisitorId);
+
+    /**
+     * 查找或创建备班值班记录（补录备班时若该时段无值班安排则自动创建）
+     * @param visitorId   初访员ID
+     * @param date        日期
+     * @param timeSlotId  时间段ID
+     * @return 值班安排ID
+     */
+    Long findOrCreateBackupSlot(Long visitorId, LocalDate date, Long timeSlotId);
 }
