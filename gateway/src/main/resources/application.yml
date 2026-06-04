@@ -4,41 +4,45 @@ server:
 spring:
   application:
     name: gateway
+  main:
+    web-application-type: reactive
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - com.baomidou.mybatisplus.autoconfigure.MybatisPlusAutoConfiguration
   cloud:
     nacos:
       discovery:
-        server-addr: localhost:8848
+        enabled: false
       config:
-        server-addr: localhost:8848
-        file-extension: yaml
+        enabled: false
     gateway:
       discovery:
         locator:
-          enabled: true
-          lower-case-service-id: true
+          enabled: false
       routes:
         # user-service
         - id: user-service
-          uri: lb://user-service
+          uri: http://localhost:8081
           predicates:
             - Path=/api/v1/user/**
         # appointment-service
         - id: appointment-service
-          uri: lb://appointment-service
+          uri: http://localhost:8082
           predicates:
             - Path=/api/v1/appointment/**
         # consultation-service
         - id: consultation-service
-          uri: lb://consultation-service
+          uri: http://localhost:8083
           predicates:
             - Path=/api/v1/consultation/**
         # statistics-service
         - id: statistics-service
-          uri: lb://statistics-service
+          uri: http://localhost:8084
           predicates:
             - Path=/api/v1/statistics/**
         # notification-service
         - id: notification-service
-          uri: lb://notification-service
+          uri: http://localhost:8085
           predicates:
             - Path=/api/v1/notification/**
