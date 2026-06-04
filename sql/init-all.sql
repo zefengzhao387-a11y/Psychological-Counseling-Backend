@@ -250,24 +250,68 @@ CREATE TABLE `consultation_extension` (
 -- 3.5 结案报告表
 DROP TABLE IF EXISTS `closing_report`;
 CREATE TABLE `closing_report` (
-    `id`               BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
-    `appointment_id`   BIGINT       NOT NULL COMMENT '咨询安排ID',
-    `counselor_id`     BIGINT       NOT NULL COMMENT '咨询师ID',
-    `student_no`       VARCHAR(32)  NOT NULL COMMENT '来访者学号',
-    `student_name`     VARCHAR(32)  NOT NULL COMMENT '来访者姓名',
-    `gender`           VARCHAR(4)   NOT NULL COMMENT '来访者性别',
-    `department`       VARCHAR(64)  NOT NULL COMMENT '来访者院系',
-    `phone`            VARCHAR(16)  NOT NULL COMMENT '来访者联系电话',
-    `problem_type`     TINYINT      NOT NULL COMMENT '问题类型',
-    `total_sessions`   INT          NOT NULL COMMENT '咨询总次数',
-    `self_evaluation`  TEXT         NOT NULL COMMENT '咨询效果自评',
-    `file_path`        VARCHAR(256) DEFAULT NULL COMMENT 'Word 文件路径',
-    `create_time`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `update_time`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `deleted`          TINYINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除',
+    -- 主键
+    `id`                    BIGINT       NOT NULL AUTO_INCREMENT  COMMENT '主键',
+    `appointment_id`        BIGINT       NOT NULL                COMMENT '咨询安排ID（关联 consultation_appointment.id）',
+    `counselor_id`          BIGINT       NOT NULL                COMMENT '咨询师ID',
+
+    -- 学生信息
+    `student_no`            VARCHAR(32)  NOT NULL                COMMENT '来访者学号',
+    `student_name`          VARCHAR(32)  NOT NULL                COMMENT '来访者姓名',
+    `gender`                VARCHAR(4)   NOT NULL                COMMENT '来访者性别',
+    `student_grade`         VARCHAR(32)  DEFAULT NULL            COMMENT '年级',
+    `department`            VARCHAR(64)  NOT NULL                COMMENT '来访者院系',
+    `student_major`         VARCHAR(64)  DEFAULT NULL            COMMENT '专业',
+    `phone`                 VARCHAR(16)  NOT NULL                COMMENT '来访者联系电话',
+    `student_email`         VARCHAR(64)  DEFAULT NULL            COMMENT '电子邮箱',
+
+    -- 咨询基本信息
+    `problem_type`          TINYINT      NOT NULL                COMMENT '问题类型：1学业 2情绪 3人际 4恋爱 5职业 6成长 7家庭 8其他',
+    `consultation_method`   VARCHAR(16)  NOT NULL  DEFAULT '面对面' COMMENT '咨询方式：面对面、线上视频、电话咨询',
+    `first_consultation_date` DATETIME   DEFAULT NULL            COMMENT '首次咨询日期',
+    `closing_date`          DATETIME     NOT NULL                COMMENT '结案日期',
+
+    -- 咨询统计
+    `total_sessions`        INT          NOT NULL  DEFAULT 0     COMMENT '咨询总次数',
+    `total_hours`           DECIMAL(6,2) NOT NULL  DEFAULT 0.00  COMMENT '总咨询时长（小时）',
+
+    -- 结案核心内容
+    `closing_reason`        VARCHAR(32)  NOT NULL                COMMENT '结案原因：目标达成、来访者主动结束、转介、失约终止、其他',
+    `closing_reason_detail` VARCHAR(512) DEFAULT NULL            COMMENT '结案原因详细说明',
+    `case_summary`          TEXT         DEFAULT NULL            COMMENT '个案摘要（来访原因、咨询过程概述）',
+    `self_evaluation`       TEXT         NOT NULL                COMMENT '咨询效果自评（来访者）',
+    `counseling_outcome`    TEXT         DEFAULT NULL            COMMENT '咨询效果评估（咨询师）',
+    `follow_up_plan`        VARCHAR(512) DEFAULT NULL            COMMENT '后续跟进计划',
+    `referral_info`         VARCHAR(512) DEFAULT NULL            COMMENT '转介信息（转介原因、转介机构）',
+
+    -- 风险评估
+    `risk_level`            VARCHAR(8)   DEFAULT '低'            COMMENT '风险评估等级：低、中、高',
+    `risk_note`             VARCHAR(512) DEFAULT NULL            COMMENT '风险备注',
+
+    -- 状态与审核
+    `status`                VARCHAR(16)  NOT NULL  DEFAULT '草稿' COMMENT '状态：草稿、已提交、已审核、已驳回',
+    `reviewer_id`           BIGINT       DEFAULT NULL            COMMENT '审核人ID',
+    `reviewer_name`         VARCHAR(32)  DEFAULT NULL            COMMENT '审核人姓名',
+    `review_comment`        VARCHAR(512) DEFAULT NULL            COMMENT '审核意见',
+    `review_date`           DATETIME     DEFAULT NULL            COMMENT '审核日期',
+
+    -- 文件
+    `file_path`             VARCHAR(256) DEFAULT NULL            COMMENT 'Word 文件路径',
+
+    -- 审计字段
+    `create_time`           DATETIME     NOT NULL  DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time`           DATETIME     NOT NULL  DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `deleted`               TINYINT      NOT NULL  DEFAULT 0     COMMENT '逻辑删除：0未删除 1已删除',
+
     PRIMARY KEY (`id`),
-    KEY `idx_appointment_id` (`appointment_id`),
-    KEY `idx_student_no` (`student_no`)
+    KEY `idx_appointment_id`       (`appointment_id`),
+    KEY `idx_student_no`           (`student_no`),
+    KEY `idx_student_name`         (`student_name`),
+    KEY `idx_counselor_id`         (`counselor_id`),
+    KEY `idx_problem_type`         (`problem_type`),
+    KEY `idx_closing_date`         (`closing_date`),
+    KEY `idx_status`               (`status`),
+    KEY `idx_create_time`          (`create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='结案报告表';
 
 

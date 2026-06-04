@@ -1,26 +1,18 @@
-package org.example.consultation.entity;
+package org.example.consultation.dto;
 
-import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
-import org.example.common.base.BaseEntity;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 结案报告实体类
+ * 结案报告新增/修改 DTO
  */
 @Data
-@EqualsAndHashCode(callSuper = true)
-@TableName("closing_report")
-public class ClosingReport extends BaseEntity {
+public class ClosingReportSaveDTO {
 
     /** 咨询安排ID */
     private Long appointmentId;
-
-    /** 咨询师ID */
-    private Long counselorId;
 
     // ==================== 学生信息 ====================
 
@@ -50,10 +42,10 @@ public class ClosingReport extends BaseEntity {
 
     // ==================== 咨询基本信息 ====================
 
-    /** 问题类型：1学业 2情绪 3人际 4恋爱 5职业 6成长 7家庭 8其他 */
+    /** 问题类型 */
     private Integer problemType;
 
-    /** 咨询方式：面对面、线上视频、电话咨询 */
+    /** 咨询方式 */
     private String consultationMethod;
 
     /** 首次咨询日期 */
@@ -72,16 +64,16 @@ public class ClosingReport extends BaseEntity {
 
     // ==================== 结案核心内容 ====================
 
-    /** 结案原因：目标达成、来访者主动结束、转介、失约终止、其他 */
+    /** 结案原因 */
     private String closingReason;
 
     /** 结案原因详细说明 */
     private String closingReasonDetail;
 
-    /** 个案摘要（来访原因、咨询过程概述） */
+    /** 个案摘要 */
     private String caseSummary;
 
-    /** 咨询效果自评（来访者） */
+    /** 咨询效果自评 */
     private String selfEvaluation;
 
     /** 咨询效果评估（咨询师） */
@@ -90,36 +82,19 @@ public class ClosingReport extends BaseEntity {
     /** 后续跟进计划 */
     private String followUpPlan;
 
-    /** 转介信息（转介原因、转介机构） */
+    /** 转介信息 */
     private String referralInfo;
 
     // ==================== 风险评估 ====================
 
-    /** 风险评估等级：低、中、高 */
+    /** 风险评估等级 */
     private String riskLevel;
 
     /** 风险备注 */
     private String riskNote;
 
-    // ==================== 状态与审核 ====================
+    // ==================== 状态 ====================
 
-    /** 状态：草稿、已提交、已审核、已驳回 */
+    /** 状态 */
     private String status;
-
-    /** 审核人ID */
-    private Long reviewerId;
-
-    /** 审核人姓名 */
-    private String reviewerName;
-
-    /** 审核意见 */
-    private String reviewComment;
-
-    /** 审核日期 */
-    private LocalDateTime reviewDate;
-
-    // ==================== 文件 ====================
-
-    /** Word 文件路径 */
-    private String filePath;
 }
