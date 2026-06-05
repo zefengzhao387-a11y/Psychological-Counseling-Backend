@@ -171,10 +171,68 @@ public class FirstVisitAppointmentServiceImpl extends ServiceImpl<FirstVisitAppo
     @Override
     @Transactional
     public void addAppointment(AppointmentAddDTO dto, Long adminId) {
+        // 1. 确定学生ID：优先使用 studentId，否则用 keyword 搜索
+        Long studentId = dto.getStudentId();
+        Long formId = dto.getFormId();
+
+        if (studentId == null && (dto.getKeyword() != null && !dto.getKeyword().isBlank())) {
+            // 按关键词搜索学生
+            List<StudentSearchVO> students = formService.searchByKeyword(dto.getKeyword());
+            if (students.isEmpty()) {
+                throw new BusinessException("未找到匹配的学生，请检查学号或姓名");
+            }
+            if (students.size() > 1) {
+                throw new BusinessException("找到多个匹配学生，请指定具体学生（匹配到 " + students.size() + " 人）");
+            }
+            StudentSearchVO vo = students.get(0);
+            studentId = vo.getStudentId();
+            if (formId == null) {
+                formId = vo.getFormId();
+            }
+        }
+
+        if (studentId == null) {
+            throw new BusinessException("请指定学生（传 studentId 或 keyword）");
+        }
+
+        // 2. 确定登记表：若未传 formId，自动获取最新登记表
+        if (formId == null) {
+            FirstVisitForm latestForm = formService.getLatestByStudentId(studentId);
+            if (latestForm == null) {
+                throw new BusinessException("该学生尚未填写首访登记表，请先完成登记");
+            }
+            formId = latestForm.getId();
+        }
+
+        // 3. 验证登记表存在且属于该学生
+        FirstVisitForm form = formService.getById(formId);
+        if (form == null || !form.getStudentId().equals(studentId)) {
+            throw new BusinessException("登记表不存在或不属于该学生");
+        }
+
+        // 4. 匹配空闲初访员：若未指定 visitorId，则自动匹配
+        Long dutyScheduleId;
+        Long visitorId = dto.getVisitorId();
+        if (visitorId != null) {
+            // 指定了初访员，验证该初访员在此时段是否空闲
+            dutyScheduleId = dutyScheduleService.matchAvailableVisitor(
+                    dto.getAppointmentDate(), dto.getTimeSlotId(), visitorId);
+        } else {
+            // 自动匹配：优先匹配预约数最少的空闲初访员
+            dutyScheduleId = dutyScheduleService.matchAvailableVisitor(
+                    dto.getAppointmentDate(), dto.getTimeSlotId(), null);
+        }
+
+        // 5. 获取匹配到的初访员ID
+        DutySchedule ds = dutyScheduleService.getById(dutyScheduleId);
+        visitorId = ds.getCounselorId();
+
+        // 6. 创建预约记录（直接已通过）
         FirstVisitAppointment app = new FirstVisitAppointment();
-        app.setStudentId(dto.getStudentId());
-        app.setFormId(dto.getFormId());
-        app.setVisitorId(dto.getVisitorId());
+        app.setStudentId(studentId);
+        app.setFormId(formId);
+        app.setVisitorId(visitorId);
+        app.setDutyScheduleId(dutyScheduleId);
         app.setAppointmentDate(dto.getAppointmentDate());
         app.setTimeSlotId(dto.getTimeSlotId());
         app.setLocation(dto.getLocation());
@@ -182,12 +240,11 @@ public class FirstVisitAppointmentServiceImpl extends ServiceImpl<FirstVisitAppo
         app.setReviewerId(adminId);
         app.setReviewTime(LocalDateTime.now());
         save(app);
+
+        // 7. 更新值班已预约数
+        dutyScheduleService.incrementBooked(dutyScheduleId);
     }
 
-    @Override
-    public List<StudentSearchVO> searchStudent(String keyword) {
-        return formService.searchByKeyword(keyword);
-    }
 
     @Override
     @Transactional

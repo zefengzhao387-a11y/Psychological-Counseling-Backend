@@ -13,9 +13,11 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class FirstVisitFormServiceImpl extends ServiceImpl<FirstVisitFormMapper, FirstVisitForm> implements FirstVisitFormService {
@@ -51,20 +53,26 @@ public class FirstVisitFormServiceImpl extends ServiceImpl<FirstVisitFormMapper,
     @Override
     public List<StudentSearchVO> searchByKeyword(String keyword) {
         if (!StringUtils.hasText(keyword)) {
-            return List.of();
+            return Collections.emptyList();
         }
-        List<FirstVisitForm> forms = lambdaQuery()
-                .and(w -> w.like(FirstVisitForm::getStudentName, keyword)
-                        .or()
-                        .like(FirstVisitForm::getStudentNo, keyword))
-                .orderByDesc(FirstVisitForm::getCreateTime)
-                .list();
+        LambdaQueryWrapper<FirstVisitForm> wrapper = new LambdaQueryWrapper<>();
+        wrapper.like(FirstVisitForm::getStudentNo, keyword)
+               .or()
+               .like(FirstVisitForm::getStudentName, keyword)
+               .orderByDesc(FirstVisitForm::getCreateTime);
 
-        Map<Long, StudentSearchVO> dedup = new LinkedHashMap<>();
+        List<FirstVisitForm> forms = list(wrapper);
+        if (forms.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 按 studentId 去重，保留每个学生最新的登记表
+        Map<Long, FirstVisitForm> latestMap = new LinkedHashMap<>();
         for (FirstVisitForm form : forms) {
-            if (form.getStudentId() == null || dedup.containsKey(form.getStudentId())) {
-                continue;
-            }
+            latestMap.putIfAbsent(form.getStudentId(), form);
+        }
+
+        return latestMap.values().stream().map(form -> {
             StudentSearchVO vo = new StudentSearchVO();
             vo.setStudentId(form.getStudentId());
             vo.setStudentName(form.getStudentName());
@@ -73,9 +81,8 @@ public class FirstVisitFormServiceImpl extends ServiceImpl<FirstVisitFormMapper,
             vo.setPhone(form.getPhone());
             vo.setFormId(form.getId());
             vo.setHasForm(true);
-            dedup.put(form.getStudentId(), vo);
-        }
-        return new ArrayList<>(dedup.values());
+            return vo;
+        }).collect(Collectors.toList());
     }
 
     @Override
@@ -93,7 +100,6 @@ public class FirstVisitFormServiceImpl extends ServiceImpl<FirstVisitFormMapper,
             return 0;
         }
         try {
-            // 使用简单的 JSON 解析（也可用 Hutool 的 JSONUtil）
             cn.hutool.json.JSONObject json = cn.hutool.json.JSONUtil.parseObj(questionnaire);
             cn.hutool.json.JSONArray scores = json.getJSONArray("scores");
             if (scores == null) return 0;

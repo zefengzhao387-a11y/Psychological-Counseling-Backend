@@ -10,6 +10,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * 初访预约（学生 + 管理员共用）
@@ -80,19 +81,45 @@ public class FirstVisitAppointmentController {
         return R.ok();
     }
 
-    /** 管理员改约 */
+    /**
+     * 管理员改约（修改初访员/日期/时间/地点）
+     * Z1-①：改约老师、时间、地点
+     */
     @PutMapping("/reschedule")
     public R<Void> reschedule(@RequestBody RescheduleDTO dto) {
         appointmentService.reschedule(dto);
         return R.ok();
     }
 
-    /** 管理员新增预约 */
+    /**
+     * 管理员按学号/姓名搜索学生
+     * Z1-②：新增预约前先搜索学生
+     */
+    @GetMapping("/search-student")
+    public R<List<StudentSearchVO>> searchStudent(@RequestParam String keyword) {
+        return R.ok(appointmentService.searchStudent(keyword));
+    }
+
+    /**
+     * 管理员新增预约（按学号姓名匹配 + 自动匹配空闲初访员）
+     * Z1-②：按学号姓名新增预约并匹配空闲老师
+     */
     @PostMapping("/add")
     public R<String> addAppointment(@RequestBody AppointmentAddDTO dto) {
         Long adminId = UserContext.getUserId();
         appointmentService.addAppointment(dto, adminId);
         return R.ok("新增成功");
+    }
+
+    /**
+     * 管理员补录备班
+     * Z1-③：补录备班（为未线上预约的来访学生手动补录预约记录）
+     */
+    @PostMapping("/backup")
+    public R<String> backupAppointment(@RequestBody BackupAppointmentDTO dto) {
+        Long adminId = UserContext.getUserId();
+        appointmentService.backupAppointment(dto, adminId);
+        return R.ok("补录备班成功");
     }
 
     /** 查询某学生今日预约 */
