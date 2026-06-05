@@ -1,14 +1,21 @@
 package org.example.appointment.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import org.example.appointment.dto.StudentSearchVO;
 import org.example.appointment.entity.FirstVisitForm;
 import org.example.appointment.mapper.FirstVisitFormMapper;
 import org.example.appointment.service.FirstVisitFormService;
 import org.example.common.exception.BusinessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 public class FirstVisitFormServiceImpl extends ServiceImpl<FirstVisitFormMapper, FirstVisitForm> implements FirstVisitFormService {
@@ -39,6 +46,45 @@ public class FirstVisitFormServiceImpl extends ServiceImpl<FirstVisitFormMapper,
         form.setHasReadConsent(1);
         form.setConsentTime(LocalDateTime.now());
         updateById(form);
+    }
+
+    @Override
+    public List<StudentSearchVO> searchByKeyword(String keyword) {
+        if (!StringUtils.hasText(keyword)) {
+            return List.of();
+        }
+        List<FirstVisitForm> forms = lambdaQuery()
+                .and(w -> w.like(FirstVisitForm::getStudentName, keyword)
+                        .or()
+                        .like(FirstVisitForm::getStudentNo, keyword))
+                .orderByDesc(FirstVisitForm::getCreateTime)
+                .list();
+
+        Map<Long, StudentSearchVO> dedup = new LinkedHashMap<>();
+        for (FirstVisitForm form : forms) {
+            if (form.getStudentId() == null || dedup.containsKey(form.getStudentId())) {
+                continue;
+            }
+            StudentSearchVO vo = new StudentSearchVO();
+            vo.setStudentId(form.getStudentId());
+            vo.setStudentName(form.getStudentName());
+            vo.setStudentNo(form.getStudentNo());
+            vo.setDepartment(form.getDepartment());
+            vo.setPhone(form.getPhone());
+            vo.setFormId(form.getId());
+            vo.setHasForm(true);
+            dedup.put(form.getStudentId(), vo);
+        }
+        return new ArrayList<>(dedup.values());
+    }
+
+    @Override
+    public FirstVisitForm getLatestByStudentId(Long studentId) {
+        return lambdaQuery()
+                .eq(FirstVisitForm::getStudentId, studentId)
+                .orderByDesc(FirstVisitForm::getCreateTime)
+                .last("LIMIT 1")
+                .one();
     }
 
     /** 从 JSON 问卷中计算总分（问卷格式：{"scores":[3,4,5,2,...]}） */

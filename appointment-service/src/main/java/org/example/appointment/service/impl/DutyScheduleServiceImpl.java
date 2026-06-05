@@ -92,4 +92,48 @@ public class DutyScheduleServiceImpl extends ServiceImpl<DutyScheduleMapper, Dut
         available.sort((a, b) -> a.getBookedCount() - b.getBookedCount());
         return available.get(0).getId();
     }
+
+    @Override
+    public Long matchAvailableVisitor(LocalDate date, Long timeSlotId, Long preferVisitorId) {
+        List<DutySchedule> available = lambdaQuery()
+                .eq(DutySchedule::getDutyDate, date)
+                .eq(DutySchedule::getTimeSlotId, timeSlotId)
+                .eq(DutySchedule::getCounselorType, 1)
+                .apply("booked_count < max_appointments")
+                .list();
+        if (available.isEmpty()) {
+            throw new BusinessException("该时段暂无空闲初访员");
+        }
+        if (preferVisitorId != null) {
+            for (DutySchedule ds : available) {
+                if (ds.getCounselorId().equals(preferVisitorId)) {
+                    return ds.getId();
+                }
+            }
+        }
+        available.sort((a, b) -> a.getBookedCount() - b.getBookedCount());
+        return available.get(0).getId();
+    }
+
+    @Override
+    @Transactional
+    public Long findOrCreateBackupSlot(Long visitorId, LocalDate date, Long timeSlotId) {
+        DutySchedule existing = lambdaQuery()
+                .eq(DutySchedule::getCounselorId, visitorId)
+                .eq(DutySchedule::getDutyDate, date)
+                .eq(DutySchedule::getTimeSlotId, timeSlotId)
+                .one();
+        if (existing != null) {
+            return existing.getId();
+        }
+        DutySchedule backup = new DutySchedule();
+        backup.setCounselorId(visitorId);
+        backup.setCounselorType(1);
+        backup.setDutyDate(date);
+        backup.setTimeSlotId(timeSlotId);
+        backup.setMaxAppointments(99);
+        backup.setBookedCount(0);
+        save(backup);
+        return backup.getId();
+    }
 }

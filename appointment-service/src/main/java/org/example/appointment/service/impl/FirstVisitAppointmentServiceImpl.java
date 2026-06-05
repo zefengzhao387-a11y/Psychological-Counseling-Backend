@@ -5,8 +5,10 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.example.appointment.dto.AppointmentAddDTO;
 import org.example.appointment.dto.AppointmentVO;
+import org.example.appointment.dto.BackupAppointmentDTO;
 import org.example.appointment.dto.RescheduleDTO;
 import org.example.appointment.dto.ReviewDTO;
+import org.example.appointment.dto.StudentSearchVO;
 import org.example.appointment.entity.DutySchedule;
 import org.example.appointment.entity.FirstVisitAppointment;
 import org.example.appointment.entity.FirstVisitForm;
@@ -21,8 +23,11 @@ import org.example.common.exception.BusinessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.util.StringUtils;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class FirstVisitAppointmentServiceImpl extends ServiceImpl<FirstVisitAppointmentMapper, FirstVisitAppointment>
@@ -177,6 +182,85 @@ public class FirstVisitAppointmentServiceImpl extends ServiceImpl<FirstVisitAppo
         app.setReviewerId(adminId);
         app.setReviewTime(LocalDateTime.now());
         save(app);
+    }
+
+    @Override
+    public List<StudentSearchVO> searchStudent(String keyword) {
+        return formService.searchByKeyword(keyword);
+    }
+
+    @Override
+    @Transactional
+    public void backupAppointment(BackupAppointmentDTO dto, Long adminId) {
+        if (dto.getAppointmentDate() == null || dto.getTimeSlotId() == null) {
+            throw new BusinessException("预约日期和时间段不能为空");
+        }
+
+        Long studentId = dto.getStudentId();
+        Long formId = null;
+
+        if (studentId == null && StringUtils.hasText(dto.getKeyword())) {
+            List<StudentSearchVO> matches = formService.searchByKeyword(dto.getKeyword());
+            if (matches.isEmpty()) {
+                throw new BusinessException("未找到匹配的学生");
+            }
+            StudentSearchVO match = matches.get(0);
+            studentId = match.getStudentId();
+            formId = match.getFormId();
+        }
+
+        if (studentId == null) {
+            throw new BusinessException("请指定学生或搜索关键词");
+        }
+
+        if (formId == null) {
+            FirstVisitForm latest = formService.getLatestByStudentId(studentId);
+            if (latest != null) {
+                formId = latest.getId();
+            } else if (StringUtils.hasText(dto.getStudentName()) && StringUtils.hasText(dto.getStudentNo())) {
+                FirstVisitForm form = new FirstVisitForm();
+                form.setStudentId(studentId);
+                form.setStudentName(dto.getStudentName());
+                form.setStudentNo(dto.getStudentNo());
+                form.setHasReadConsent(1);
+                form.setConsentTime(LocalDateTime.now());
+                formService.save(form);
+                formId = form.getId();
+            }
+        }
+
+        Long dutyScheduleId = dutyScheduleService.matchAvailableVisitor(
+                dto.getAppointmentDate(), dto.getTimeSlotId(), dto.getVisitorId());
+        DutySchedule ds = dutyScheduleService.getById(dutyScheduleId);
+        if (ds == null) {
+            throw new BusinessException("未找到可用值班安排");
+        }
+
+        if (dto.getVisitorId() != null && !dto.getVisitorId().equals(ds.getCounselorId())) {
+            dutyScheduleId = dutyScheduleService.findOrCreateBackupSlot(
+                    dto.getVisitorId(), dto.getAppointmentDate(), dto.getTimeSlotId());
+            ds = dutyScheduleService.getById(dutyScheduleId);
+        } else if (dto.getVisitorId() == null) {
+            dutyScheduleId = dutyScheduleService.findOrCreateBackupSlot(
+                    ds.getCounselorId(), dto.getAppointmentDate(), dto.getTimeSlotId());
+            ds = dutyScheduleService.getById(dutyScheduleId);
+        }
+
+        FirstVisitAppointment app = new FirstVisitAppointment();
+        app.setStudentId(studentId);
+        app.setFormId(formId);
+        app.setDutyScheduleId(dutyScheduleId);
+        app.setVisitorId(ds.getCounselorId());
+        app.setAppointmentDate(dto.getAppointmentDate());
+        app.setTimeSlotId(dto.getTimeSlotId());
+        app.setLocation(dto.getLocation());
+        app.setStatus(AppointmentStatus.APPROVED.getCode());
+        app.setReviewerId(adminId);
+        app.setReviewTime(LocalDateTime.now());
+        app.setReviewRemark(dto.getRemark());
+        save(app);
+
+        dutyScheduleService.incrementBooked(dutyScheduleId);
     }
 
     @Override
