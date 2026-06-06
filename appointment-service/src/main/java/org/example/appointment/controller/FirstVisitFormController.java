@@ -34,6 +34,13 @@ public class FirstVisitFormController {
         return R.ok();
     }
 
+    /** 学生查询自己最新的登记表 */
+    @GetMapping("/latest")
+    public R<FirstVisitForm> latest() {
+        FirstVisitForm form = formService.getLatestByStudentId(UserContext.getUserId());
+        return R.ok(form);
+    }
+
     /** 查询登记表详情 */
     @GetMapping("/{id}")
     public R<FirstVisitForm> detail(@PathVariable Long id) {
