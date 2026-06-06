@@ -24,5 +24,7 @@ public class FirstVisitResult extends BaseEntity {
     private LocalDateTime visitTime;
     /** 初访结论：1无需咨询 2安排咨询 3转介送诊 */
     private Integer conclusion;
+    /** 心理助理处理状态：0待处理 1已安排 2已标记无需安排 */
+    private Integer assistantStatus;
     private String remark;
 }

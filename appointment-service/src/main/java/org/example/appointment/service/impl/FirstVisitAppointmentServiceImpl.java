@@ -27,6 +27,7 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 
 @Service
@@ -210,17 +211,21 @@ public class FirstVisitAppointmentServiceImpl extends ServiceImpl<FirstVisitAppo
             throw new BusinessException("登记表不存在或不属于该学生");
         }
 
-        // 4. 匹配空闲初访员：若未指定 visitorId，则自动匹配
+        // 4. 匹配空闲初访员：无排班时自动补备班（与补录备班逻辑一致）
         Long dutyScheduleId;
         Long visitorId = dto.getVisitorId();
-        if (visitorId != null) {
-            // 指定了初访员，验证该初访员在此时段是否空闲
-            dutyScheduleId = dutyScheduleService.matchAvailableVisitor(
-                    dto.getAppointmentDate(), dto.getTimeSlotId(), visitorId);
-        } else {
-            // 自动匹配：优先匹配预约数最少的空闲初访员
-            dutyScheduleId = dutyScheduleService.matchAvailableVisitor(
-                    dto.getAppointmentDate(), dto.getTimeSlotId(), null);
+        try {
+            if (visitorId != null) {
+                dutyScheduleId = dutyScheduleService.matchAvailableVisitor(
+                        dto.getAppointmentDate(), dto.getTimeSlotId(), visitorId);
+            } else {
+                dutyScheduleId = dutyScheduleService.matchAvailableVisitor(
+                        dto.getAppointmentDate(), dto.getTimeSlotId(), null);
+            }
+        } catch (BusinessException ex) {
+            Long backupVisitor = visitorId != null ? visitorId : resolveDefaultVisitorId();
+            dutyScheduleId = dutyScheduleService.findOrCreateBackupSlot(
+                    backupVisitor, dto.getAppointmentDate(), dto.getTimeSlotId());
         }
 
         // 5. 获取匹配到的初访员ID
@@ -245,6 +250,26 @@ public class FirstVisitAppointmentServiceImpl extends ServiceImpl<FirstVisitAppo
         dutyScheduleService.incrementBooked(dutyScheduleId);
     }
 
+    /** 无指定初访员时，取系统中任意一名初访员（counselor_type=1） */
+    private Long resolveDefaultVisitorId() {
+        DutySchedule any = dutyScheduleService.lambdaQuery()
+                .eq(DutySchedule::getCounselorType, 1)
+                .last("LIMIT 1")
+                .one();
+        if (any != null) {
+            return any.getCounselorId();
+        }
+        return 2L;
+    }
+
+
+    @Override
+    public List<StudentSearchVO> searchStudent(String keyword) {
+        if (!StringUtils.hasText(keyword)) {
+            return Collections.emptyList();
+        }
+        return formService.searchByKeyword(keyword);
+    }
 
     @Override
     @Transactional

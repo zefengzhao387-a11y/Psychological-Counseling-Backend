@@ -4,6 +4,9 @@ server:
 spring:
   application:
     name: notification-service
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
   cloud:
     nacos:
       discovery:
@@ -22,6 +25,11 @@ spring:
     username: guest
     password: guest
 
+# 本地无 RabbitMQ 时保持 false；有 MQ 时改为 true
+notification:
+  mq:
+    enabled: false
+
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
@@ -32,3 +40,10 @@ mybatis-plus:
       logic-delete-field: deleted
       logic-delete-value: 1
       logic-not-delete-value: 0
+
+knife4j:
+  enable: true
+
+springdoc:
+  swagger-ui:
+    path: /doc.html

@@ -49,4 +49,10 @@ public class ConsultationAppointmentController {
         service.updateArrangement(id, dto);
         return R.ok();
     }
+
+    /** 新增咨询安排（手动补录） */
+    @PostMapping("/records")
+    public R<ConsultationAppointment> createRecord(@RequestBody ArrangeDTO dto) {
+        return R.ok("新增成功", service.arrange(dto));
+    }
 }

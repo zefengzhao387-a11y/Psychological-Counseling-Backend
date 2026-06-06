@@ -13,6 +13,8 @@ import org.example.statistics.entity.ClosingReport;
 import org.example.statistics.mapper.ClosingReportMapper;
 import org.example.statistics.service.StatisticsService;
 import org.example.statistics.util.ExcelExportUtil;
+import org.example.statistics.util.ZipDownloadUtil;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -30,6 +32,9 @@ import java.util.stream.Collectors;
 public class StatisticsServiceImpl implements StatisticsService {
 
     private final ClosingReportMapper closingReportMapper;
+
+    @Value("${closing-report.files-dir:./reports/}")
+    private String reportFilesDir;
 
     /** 问题类型名称映射 */
     private static final String[] PROBLEM_TYPE_NAMES = {
@@ -190,6 +195,24 @@ public class StatisticsServiceImpl implements StatisticsService {
         } catch (Exception e) {
             log.error("Excel导出失败", e);
             throw new RuntimeException("Excel导出失败: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public void batchDownloadZip(List<Long> ids, HttpServletResponse response) {
+        if (ids == null || ids.isEmpty()) {
+            throw new org.example.common.exception.BusinessException("请选择要下载的报告");
+        }
+        List<ClosingReport> reports = closingReportMapper.selectBatchIds(ids);
+        response.setContentType("application/zip");
+        response.setCharacterEncoding("UTF-8");
+        response.setHeader("Content-Disposition", "attachment; filename=closing-reports.zip");
+        try {
+            ZipDownloadUtil.downloadReportsZip(response.getOutputStream(), reports, reportFilesDir);
+            log.info("批量下载结案报告 {} 份", reports.size());
+        } catch (Exception e) {
+            log.error("批量下载失败", e);
+            throw new RuntimeException("批量下载失败: " + e.getMessage());
         }
     }
 

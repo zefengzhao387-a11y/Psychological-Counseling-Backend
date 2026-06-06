@@ -13,6 +13,11 @@ public interface SysUserService extends IService<SysUser> {
     LoginVO login(LoginDTO loginDTO);
 
     /**
+     * 学生自助注册
+     */
+    void registerStudent(RegisterDTO dto);
+
+    /**
      * 根据学号/工号查询
      */
     SysUser getByUserNo(String userNo);

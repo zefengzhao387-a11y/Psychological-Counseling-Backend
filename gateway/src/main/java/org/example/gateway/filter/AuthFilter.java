@@ -22,7 +22,11 @@ public class AuthFilter implements GlobalFilter, Ordered {
     /** 白名单路径（无需登录） */
     private static final List<String> WHITELIST = List.of(
             "/api/v1/user/auth/login",
-            "/api/v1/user/auth/register"
+            "/api/v1/user/auth/register",
+            "/doc.html",
+            "/v3/api-docs",
+            "/swagger-ui",
+            "/webjars"
     );
 
     @Override

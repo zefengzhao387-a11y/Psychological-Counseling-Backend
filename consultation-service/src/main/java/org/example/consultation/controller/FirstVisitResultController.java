@@ -32,4 +32,17 @@ public class FirstVisitResultController {
     public R<List<FirstVisitResult>> listPending() {
         return R.ok(service.listPendingArrangement());
     }
+
+    /** 心理助理全部待办（含无需咨询/转介） */
+    @GetMapping("/assistant-tasks")
+    public R<List<FirstVisitResult>> listAssistantTasks() {
+        return R.ok(service.listAssistantTasks());
+    }
+
+    /** 标记已处理（无需咨询/转介） */
+    @PutMapping("/{id}/mark-processed")
+    public R<Void> markProcessed(@PathVariable Long id) {
+        service.markProcessed(id);
+        return R.ok();
+    }
 }

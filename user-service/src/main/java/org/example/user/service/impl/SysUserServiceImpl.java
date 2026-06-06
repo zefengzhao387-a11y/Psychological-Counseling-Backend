@@ -43,6 +43,24 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     }
 
     @Override
+    public void registerStudent(RegisterDTO dto) {
+        if (!StringUtils.hasText(dto.getUserNo()) || !StringUtils.hasText(dto.getPassword())) {
+            throw new BusinessException("学号和密码不能为空");
+        }
+        if (getByUserNo(dto.getUserNo()) != null) {
+            throw new BusinessException("该学号已注册");
+        }
+        SysUser user = new SysUser();
+        user.setUserNo(dto.getUserNo());
+        user.setUsername(StringUtils.hasText(dto.getUsername()) ? dto.getUsername() : dto.getUserNo());
+        user.setPassword(DigestUtils.md5DigestAsHex(dto.getPassword().getBytes()));
+        user.setPhone(dto.getPhone());
+        user.setDepartment(dto.getDepartment());
+        user.setRoleCode(UserRole.STUDENT.getCode());
+        save(user);
+    }
+
+    @Override
     public SysUser getByUserNo(String userNo) {
         return getOne(new LambdaQueryWrapper<SysUser>().eq(SysUser::getUserNo, userNo));
     }

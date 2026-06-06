@@ -1,0 +1,8 @@
+# 启用 RabbitMQ 时使用：java -jar ... --spring.profiles.active=mq
+spring:
+  autoconfigure:
+    exclude: []
+
+notification:
+  mq:
+    enabled: true

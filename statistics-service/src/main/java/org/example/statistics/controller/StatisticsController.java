@@ -13,8 +13,11 @@ import org.example.statistics.dto.SummaryStatsDTO;
 import org.example.statistics.entity.ClosingReport;
 import org.example.statistics.service.StatisticsService;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.example.statistics.dto.BatchDownloadDTO;
 
 import java.util.List;
 
@@ -84,5 +87,14 @@ public class StatisticsController {
     public void export(StatisticsQueryDTO queryDTO, HttpServletResponse response) {
         log.info("统计分析-导出Excel");
         statisticsService.exportExcel(queryDTO, response);
+    }
+
+    /**
+     * 批量下载结案报告 Word（Zip）
+     */
+    @PostMapping("/download")
+    public void batchDownload(@RequestBody BatchDownloadDTO dto, HttpServletResponse response) {
+        log.info("统计分析-批量下载 {} 份报告", dto.getIds() != null ? dto.getIds().size() : 0);
+        statisticsService.batchDownloadZip(dto.getIds(), response);
     }
 }

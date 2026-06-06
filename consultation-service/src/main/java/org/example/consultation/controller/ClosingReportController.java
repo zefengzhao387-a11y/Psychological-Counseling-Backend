@@ -104,7 +104,7 @@ public class ClosingReportController {
     @DeleteMapping("/{id}")
     public R<Void> delete(@PathVariable Long id) {
         service.delete(id);
-        return R.ok("删除成功");
+        return R.ok();
     }
 
     // ==================== Word 生成 ====================

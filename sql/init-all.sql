@@ -178,6 +178,7 @@ CREATE TABLE `first_visit_result` (
     `problem_type`   TINYINT   NOT NULL COMMENT '问题类型：1学业 2情绪 3人际 4恋爱 5职业 6成长 7家庭 8其他',
     `visit_time`     DATETIME  NOT NULL COMMENT '初访时间',
     `conclusion`     TINYINT   NOT NULL COMMENT '初访结论：1无需咨询 2安排咨询 3转介送诊',
+    `assistant_status` TINYINT NOT NULL DEFAULT 0 COMMENT '心理助理处理：0待处理 1已安排 2已标记处理',
     `remark`         TEXT      DEFAULT NULL COMMENT '备注',
     `create_time`    DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `update_time`    DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -316,7 +317,61 @@ CREATE TABLE `closing_report` (
 
 
 -- =====================================================
--- 4. psy_notification（通知服务）
+-- 4. psy_statistics（统计服务 — 结案报告只读统计）
+-- =====================================================
+USE psy_statistics;
+
+DROP TABLE IF EXISTS `closing_report`;
+CREATE TABLE `closing_report` (
+    `id`                    BIGINT       NOT NULL AUTO_INCREMENT  COMMENT '主键',
+    `appointment_id`        BIGINT       NOT NULL                COMMENT '咨询安排ID（关联 consultation_appointment.id）',
+    `counselor_id`          BIGINT       NOT NULL                COMMENT '咨询师ID',
+    `student_no`            VARCHAR(32)  NOT NULL                COMMENT '来访者学号',
+    `student_name`          VARCHAR(32)  NOT NULL                COMMENT '来访者姓名',
+    `gender`                VARCHAR(4)   NOT NULL                COMMENT '来访者性别',
+    `student_grade`         VARCHAR(32)  DEFAULT NULL            COMMENT '年级',
+    `department`            VARCHAR(64)  NOT NULL                COMMENT '来访者院系',
+    `student_major`         VARCHAR(64)  DEFAULT NULL            COMMENT '专业',
+    `phone`                 VARCHAR(16)  NOT NULL                COMMENT '来访者联系电话',
+    `student_email`         VARCHAR(64)  DEFAULT NULL            COMMENT '电子邮箱',
+    `problem_type`          TINYINT      NOT NULL                COMMENT '问题类型：1学业 2情绪 3人际 4恋爱 5职业 6成长 7家庭 8其他',
+    `consultation_method`   VARCHAR(16)  NOT NULL  DEFAULT '面对面' COMMENT '咨询方式：面对面、线上视频、电话咨询',
+    `first_consultation_date` DATETIME   DEFAULT NULL            COMMENT '首次咨询日期',
+    `closing_date`          DATETIME     NOT NULL                COMMENT '结案日期',
+    `total_sessions`        INT          NOT NULL  DEFAULT 0     COMMENT '咨询总次数',
+    `total_hours`           DECIMAL(6,2) NOT NULL  DEFAULT 0.00  COMMENT '总咨询时长（小时）',
+    `closing_reason`        VARCHAR(32)  NOT NULL                COMMENT '结案原因：目标达成、来访者主动结束、转介、失约终止、其他',
+    `closing_reason_detail` VARCHAR(512) DEFAULT NULL            COMMENT '结案原因详细说明',
+    `case_summary`          TEXT         DEFAULT NULL            COMMENT '个案摘要（来访原因、咨询过程概述）',
+    `self_evaluation`       TEXT         NOT NULL                COMMENT '咨询效果自评（来访者）',
+    `counseling_outcome`    TEXT         DEFAULT NULL            COMMENT '咨询效果评估（咨询师）',
+    `follow_up_plan`        VARCHAR(512) DEFAULT NULL            COMMENT '后续跟进计划',
+    `referral_info`         VARCHAR(512) DEFAULT NULL            COMMENT '转介信息（转介原因、转介机构）',
+    `risk_level`            VARCHAR(8)   DEFAULT '低'            COMMENT '风险评估等级：低、中、高',
+    `risk_note`             VARCHAR(512) DEFAULT NULL            COMMENT '风险备注',
+    `status`                VARCHAR(16)  NOT NULL  DEFAULT '草稿' COMMENT '状态：草稿、已提交、已审核、已驳回',
+    `reviewer_id`           BIGINT       DEFAULT NULL            COMMENT '审核人ID',
+    `reviewer_name`         VARCHAR(32)  DEFAULT NULL            COMMENT '审核人姓名',
+    `review_comment`        VARCHAR(512) DEFAULT NULL            COMMENT '审核意见',
+    `review_date`           DATETIME     DEFAULT NULL            COMMENT '审核日期',
+    `file_path`             VARCHAR(256) DEFAULT NULL            COMMENT 'Word 文件路径',
+    `create_time`           DATETIME     NOT NULL  DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time`           DATETIME     NOT NULL  DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `deleted`               TINYINT      NOT NULL  DEFAULT 0     COMMENT '逻辑删除：0未删除 1已删除',
+    PRIMARY KEY (`id`),
+    KEY `idx_appointment_id`       (`appointment_id`),
+    KEY `idx_student_no`           (`student_no`),
+    KEY `idx_student_name`         (`student_name`),
+    KEY `idx_counselor_id`         (`counselor_id`),
+    KEY `idx_problem_type`         (`problem_type`),
+    KEY `idx_closing_date`         (`closing_date`),
+    KEY `idx_status`               (`status`),
+    KEY `idx_create_time`          (`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='结案报告表（统计只读）';
+
+
+-- =====================================================
+-- 5. psy_notification（通知服务）
 -- =====================================================
 USE psy_notification;
 

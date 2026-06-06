@@ -7,9 +7,14 @@ import java.util.List;
 
 public interface FirstVisitResultService extends IService<FirstVisitResult> {
 
-    /** 初访员录入评估结果 */
     FirstVisitResult record(Long visitorId, FirstVisitResult result);
 
-    /** 心理助理查看待安排咨询的初访结果（结论=安排咨询） */
+    /** 待安排咨询（结论=安排咨询 且 助理未处理） */
     List<FirstVisitResult> listPendingArrangement();
+
+    /** 心理助理待办（含无需咨询/转介待标记 + 待安排咨询） */
+    List<FirstVisitResult> listAssistantTasks();
+
+    /** 标记已处理（无需安排/转介归档） */
+    void markProcessed(Long id);
 }
