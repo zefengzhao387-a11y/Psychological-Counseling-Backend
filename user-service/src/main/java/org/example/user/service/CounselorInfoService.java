@@ -20,4 +20,7 @@ public interface CounselorInfoService extends IService<CounselorInfo> {
 
     /** 删除 */
     void delete(Long id);
+
+    /** 根据 userId 查询 */
+    CounselorInfoVO getByUserId(Long userId);
 }

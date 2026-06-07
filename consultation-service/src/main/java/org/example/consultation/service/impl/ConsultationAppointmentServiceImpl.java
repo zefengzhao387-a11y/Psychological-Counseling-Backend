@@ -81,9 +81,12 @@ public class ConsultationAppointmentServiceImpl extends ServiceImpl<Consultation
     }
 
     @Override
-    public Page<ConsultationAppointment> listAll(Integer page, Integer size) {
-        return lambdaQuery()
-                .orderByDesc(ConsultationAppointment::getCreateTime)
+    public Page<ConsultationAppointment> listAll(Integer page, Integer size, Long counselorId) {
+        var query = lambdaQuery();
+        if (counselorId != null) {
+            query.eq(ConsultationAppointment::getCounselorId, counselorId);
+        }
+        return query.orderByDesc(ConsultationAppointment::getCreateTime)
                 .page(new Page<>(page, size));
     }
 

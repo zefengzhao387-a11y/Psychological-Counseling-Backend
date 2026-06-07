@@ -24,11 +24,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class FirstVisitAppointmentServiceImpl extends ServiceImpl<FirstVisitAppointmentMapper, FirstVisitAppointment>
@@ -37,13 +40,16 @@ public class FirstVisitAppointmentServiceImpl extends ServiceImpl<FirstVisitAppo
     private final FirstVisitFormService formService;
     private final DutyScheduleService dutyScheduleService;
     private final TimeConfigService timeConfigService;
+    private final RestTemplate restTemplate;
 
     public FirstVisitAppointmentServiceImpl(FirstVisitFormService formService,
                                              DutyScheduleService dutyScheduleService,
-                                             TimeConfigService timeConfigService) {
+                                             TimeConfigService timeConfigService,
+                                             RestTemplate restTemplate) {
         this.formService = formService;
         this.dutyScheduleService = dutyScheduleService;
         this.timeConfigService = timeConfigService;
+        this.restTemplate = restTemplate;
     }
 
     /** 计分报警阈值 */
@@ -108,11 +114,36 @@ public class FirstVisitAppointmentServiceImpl extends ServiceImpl<FirstVisitAppo
         if (status != null) {
             wrapper.eq(FirstVisitAppointment::getStatus, status);
         }
-        wrapper.orderByDesc(FirstVisitAppointment::getIsPriority)
-               .orderByAsc(FirstVisitAppointment::getCreateTime);
+        wrapper.orderByAsc(FirstVisitAppointment::getCreateTime);
         Page<FirstVisitAppointment> pageResult = page(new Page<>(page, size), wrapper);
+
+        // 批量加载登记表获取 isUrgent，用于排序
+        List<Long> formIds = pageResult.getRecords().stream()
+                .map(FirstVisitAppointment::getFormId)
+                .distinct().collect(java.util.stream.Collectors.toList());
+        Map<Long, FirstVisitForm> formMap = Collections.emptyMap();
+        if (!formIds.isEmpty()) {
+            formMap = formService.listByIds(formIds).stream()
+                    .collect(java.util.stream.Collectors.toMap(FirstVisitForm::getId, f -> f, (a, b) -> a));
+        }
+
+        Map<Long, FirstVisitForm> finalFormMap = formMap;
+        List<AppointmentVO> voList = pageResult.getRecords().stream()
+                .map(app -> toVO(app, finalFormMap.get(app.getFormId())))
+                .sorted((a, b) -> {
+                    int urgentA = a.getIsUrgent() != null && a.getIsUrgent() == 1 ? 0 : 1;
+                    int urgentB = b.getIsUrgent() != null && b.getIsUrgent() == 1 ? 0 : 1;
+                    if (urgentA != urgentB) return Integer.compare(urgentA, urgentB);
+                    int priorityA = a.getIsPriority() != null && a.getIsPriority() == 1 ? 0 : 1;
+                    int priorityB = b.getIsPriority() != null && b.getIsPriority() == 1 ? 0 : 1;
+                    if (priorityA != priorityB) return Integer.compare(priorityA, priorityB);
+                    if (a.getCreateTime() == null || b.getCreateTime() == null) return 0;
+                    return a.getCreateTime().compareTo(b.getCreateTime());
+                })
+                .collect(java.util.stream.Collectors.toList());
+
         Page<AppointmentVO> voPage = new Page<>(pageResult.getCurrent(), pageResult.getSize(), pageResult.getTotal());
-        voPage.setRecords(pageResult.getRecords().stream().map(this::toVO).collect(java.util.stream.Collectors.toList()));
+        voPage.setRecords(voList);
         return voPage;
     }
 
@@ -134,6 +165,8 @@ public class FirstVisitAppointmentServiceImpl extends ServiceImpl<FirstVisitAppo
             app.setVisitorId(dto.getVisitorId());
             app.setLocation(dto.getLocation());
             app.setStatus(AppointmentStatus.APPROVED.getCode());
+            // 发送短信通知学生
+            trySendApprovalSms(app);
         } else if (dto.getStatus() == AppointmentStatus.REJECTED.getCode()) {
             app.setStatus(AppointmentStatus.REJECTED.getCode());
             app.setReviewRemark(dto.getRemark());
@@ -304,6 +337,7 @@ public class FirstVisitAppointmentServiceImpl extends ServiceImpl<FirstVisitAppo
                 form.setStudentId(studentId);
                 form.setStudentName(dto.getStudentName());
                 form.setStudentNo(dto.getStudentNo());
+                form.setPhone(StringUtils.hasText(dto.getPhone()) ? dto.getPhone() : "待补充");
                 form.setHasReadConsent(1);
                 form.setConsentTime(LocalDateTime.now());
                 formService.save(form);
@@ -367,6 +401,11 @@ public class FirstVisitAppointmentServiceImpl extends ServiceImpl<FirstVisitAppo
     }
 
     private AppointmentVO toVO(FirstVisitAppointment app) {
+        FirstVisitForm form = app.getFormId() != null ? formService.getById(app.getFormId()) : null;
+        return toVO(app, form);
+    }
+
+    private AppointmentVO toVO(FirstVisitAppointment app, FirstVisitForm form) {
         AppointmentVO vo = new AppointmentVO();
         vo.setId(app.getId());
         vo.setStudentId(app.getStudentId());
@@ -391,17 +430,51 @@ public class FirstVisitAppointmentServiceImpl extends ServiceImpl<FirstVisitAppo
             vo.setTimeSlotName(tc.getSlotName());
         }
 
-        if (app.getFormId() != null) {
-            FirstVisitForm form = formService.getById(app.getFormId());
-            if (form != null) {
-                vo.setTotalScore(form.getTotalScore());
-                vo.setIsUrgent(form.getIsUrgent());
-                vo.setStudentName(form.getStudentName());
-                vo.setStudentNo(form.getStudentNo());
-            }
+        if (form != null) {
+            vo.setTotalScore(form.getTotalScore());
+            vo.setIsUrgent(form.getIsUrgent());
+            vo.setStudentName(form.getStudentName());
+            vo.setStudentNo(form.getStudentNo());
         }
 
-        vo.setVisitorName("初访员" + app.getVisitorId());
+        vo.setVisitorName(fetchCounselorName(app.getVisitorId()));
         return vo;
+    }
+
+    /** 跨服务查询初访员真实姓名 */
+    private String fetchCounselorName(Long userId) {
+        if (userId == null) return "未分配";
+        try {
+            String url = "http://localhost:8081/api/v1/user/counselor/by-user/" + userId;
+            @SuppressWarnings("unchecked")
+            org.example.common.result.R<Map<String, Object>> res =
+                restTemplate.getForObject(url, org.example.common.result.R.class);
+            if (res != null && res.getCode() == 200 && res.getData() != null) {
+                Object name = res.getData().get("name");
+                if (name != null) return name.toString();
+            }
+        } catch (Exception ignored) { }
+        return "初访员" + userId;
+    }
+
+    /** 审核通过后发送短信通知 */
+    private void trySendApprovalSms(FirstVisitAppointment app) {
+        try {
+            FirstVisitForm form = formService.getById(app.getFormId());
+            if (form == null || !StringUtils.hasText(form.getPhone())) return;
+            TimeConfig tc = timeConfigService.getById(app.getTimeSlotId());
+            String slotName = tc != null ? tc.getSlotName() : "";
+            String content = String.format(
+                "【听心心理】同学你好，你的初访预约已通过审核。时间：%s %s，地点：%s。请按时到达。",
+                app.getAppointmentDate(), slotName,
+                app.getLocation() != null ? app.getLocation() : "心理中心");
+            Map<String, String> body = new HashMap<>();
+            body.put("phone", form.getPhone());
+            body.put("content", content);
+            body.put("templateCode", "appointment_approved");
+            restTemplate.postForObject("http://localhost:8085/api/v1/notification/sms/send", body, String.class);
+        } catch (Exception ignored) {
+            // 短信发送失败不影响主流程
+        }
     }
 }

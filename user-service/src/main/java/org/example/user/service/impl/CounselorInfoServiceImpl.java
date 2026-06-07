@@ -62,6 +62,13 @@ public class CounselorInfoServiceImpl extends ServiceImpl<CounselorInfoMapper, C
         removeById(id);
     }
 
+    @Override
+    public CounselorInfoVO getByUserId(Long userId) {
+        CounselorInfo info = lambdaQuery()
+                .eq(CounselorInfo::getUserId, userId).one();
+        return info != null ? toVO(info) : null;
+    }
+
     private CounselorInfoVO toVO(CounselorInfo info) {
         CounselorInfoVO vo = new CounselorInfoVO();
         vo.setId(info.getId());

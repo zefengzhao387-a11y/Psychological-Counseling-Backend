@@ -38,8 +38,9 @@ public class ConsultationAppointmentController {
     @GetMapping("/records")
     public R<PageResult<ConsultationAppointment>> listAll(
             @RequestParam(defaultValue = "1") Integer page,
-            @RequestParam(defaultValue = "10") Integer size) {
-        Page<ConsultationAppointment> result = service.listAll(page, size);
+            @RequestParam(defaultValue = "10") Integer size,
+            @RequestParam(required = false) Long counselorId) {
+        Page<ConsultationAppointment> result = service.listAll(page, size, counselorId);
         return R.ok(PageResult.of(result));
     }
 

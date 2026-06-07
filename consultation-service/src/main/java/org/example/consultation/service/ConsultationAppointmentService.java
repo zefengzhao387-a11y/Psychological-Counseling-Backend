@@ -18,8 +18,8 @@ public interface ConsultationAppointmentService extends IService<ConsultationApp
     /** 提前结案，释放剩余时段 */
     void closeEarly(Long appointmentId);
 
-    /** 咨询安排列表 */
-    Page<ConsultationAppointment> listAll(Integer page, Integer size);
+    /** 咨询安排列表（可按咨询师筛选） */
+    Page<ConsultationAppointment> listAll(Integer page, Integer size, Long counselorId);
 
     /** 改约咨询安排 */
     void updateArrangement(Long id, ArrangeDTO dto);

@@ -47,4 +47,11 @@ public class CounselorInfoController {
         counselorInfoService.delete(id);
         return R.ok("删除成功");
     }
+
+    /** 根据 userId 查询咨询师/初访员信息 */
+    @GetMapping("/by-user/{userId}")
+    public R<CounselorInfoVO> getByUserId(@PathVariable Long userId) {
+        CounselorInfoVO vo = counselorInfoService.getByUserId(userId);
+        return vo != null ? R.ok(vo) : R.fail(404, "未找到");
+    }
 }

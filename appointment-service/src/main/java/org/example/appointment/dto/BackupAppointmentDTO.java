@@ -22,6 +22,9 @@ public class BackupAppointmentDTO {
     /** 学号（补录时如无登记表，直接填写） */
     private String studentNo;
 
+    /** 联系电话（补录时如无登记表，直接填写） */
+    private String phone;
+
     /** 初访员ID（不传则自动匹配空闲初访员） */
     private Long visitorId;
 
