@@ -17,4 +17,7 @@ public interface ConsultationExtensionService extends IService<ConsultationExten
 
     /** 待审批列表 */
     List<ConsultationExtension> listPending();
+
+    /** 查询某咨询师的所有申请 */
+    List<ConsultationExtension> listByCounselor(Long counselorId);
 }

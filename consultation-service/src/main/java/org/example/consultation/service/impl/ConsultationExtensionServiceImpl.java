@@ -72,4 +72,10 @@ public class ConsultationExtensionServiceImpl extends ServiceImpl<ConsultationEx
         return lambdaQuery().eq(ConsultationExtension::getStatus, 1)
                 .orderByAsc(ConsultationExtension::getCreateTime).list();
     }
+
+    @Override
+    public List<ConsultationExtension> listByCounselor(Long counselorId) {
+        return lambdaQuery().eq(ConsultationExtension::getCounselorId, counselorId)
+                .orderByDesc(ConsultationExtension::getCreateTime).list();
+    }
 }

@@ -41,4 +41,10 @@ public class ConsultationExtensionController {
     public R<List<ConsultationExtension>> listPending() {
         return R.ok(service.listPending());
     }
+
+    /** 咨询师查看自己的申请列表 */
+    @GetMapping("/my")
+    public R<List<ConsultationExtension>> listMy() {
+        return R.ok(service.listByCounselor(UserContext.getUserId()));
+    }
 }
