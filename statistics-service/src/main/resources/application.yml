@@ -37,3 +37,6 @@ springdoc:
 
 closing-report:
   files-dir: ./reports/
+
+service:
+  consultation-url: http://localhost:8083

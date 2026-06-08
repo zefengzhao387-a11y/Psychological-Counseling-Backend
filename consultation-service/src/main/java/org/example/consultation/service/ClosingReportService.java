@@ -2,6 +2,7 @@ package org.example.consultation.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
+import jakarta.servlet.http.HttpServletResponse;
 import org.example.consultation.dto.ClosingReportQueryDTO;
 import org.example.consultation.dto.ClosingReportSaveDTO;
 import org.example.consultation.entity.ClosingReport;
@@ -47,6 +48,11 @@ public interface ClosingReportService extends IService<ClosingReport> {
      * 生成 Word 文档并返回文件路径
      */
     String generateWord(Long reportId);
+
+    /**
+     * 下载 Word 文档
+     */
+    void downloadWord(Long reportId, HttpServletResponse response);
 
     /**
      * 按条件查询列表

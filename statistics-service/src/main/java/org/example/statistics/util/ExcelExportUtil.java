@@ -2,6 +2,7 @@ package org.example.statistics.util;
 
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.write.style.column.LongestMatchColumnWidthStyleStrategy;
+import org.example.statistics.dto.CounselorStatsDTO;
 import org.example.statistics.entity.ClosingReport;
 
 import java.io.OutputStream;
@@ -123,5 +124,46 @@ public class ExcelExportUtil {
 
     private static String formatDate(LocalDateTime dt) {
         return dt != null ? dt.format(DATE_FMT) : "";
+    }
+
+    // ==================== 咨询师统计导出 ====================
+
+    /**
+     * 导出咨询师工作量统计到 Excel
+     */
+    public static void exportCounselorStats(OutputStream outputStream, List<CounselorStatsDTO> stats) {
+        List<Map<Integer, String>> data = new ArrayList<>();
+
+        for (int i = 0; i < stats.size(); i++) {
+            CounselorStatsDTO s = stats.get(i);
+            Map<Integer, String> row = new LinkedHashMap<>();
+            int c = 0;
+            row.put(c++, String.valueOf(i + 1));
+            row.put(c++, nvl(s.getCounselorId()));
+            row.put(c++, nvl(s.getTotalReports()));
+            row.put(c++, nvl(s.getClosedCount()));
+            row.put(c++, nvl(s.getDropoutCount()));
+            row.put(c++, s.getTotalHours() != null ? s.getTotalHours().toString() : "0");
+            row.put(c++, nvl(s.getProblemTypeBreakdown()));
+            data.add(row);
+        }
+
+        EasyExcel.write(outputStream)
+                .head(buildCounselorHead())
+                .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
+                .sheet("咨询师工作量统计")
+                .doWrite(() -> data);
+    }
+
+    private static List<List<String>> buildCounselorHead() {
+        List<List<String>> head = new ArrayList<>();
+        head.add(singleHead("序号"));
+        head.add(singleHead("咨询师ID"));
+        head.add(singleHead("报告总数"));
+        head.add(singleHead("已结案数"));
+        head.add(singleHead("脱落数"));
+        head.add(singleHead("总咨询时长(h)"));
+        head.add(singleHead("问题类型分布"));
+        return head;
     }
 }

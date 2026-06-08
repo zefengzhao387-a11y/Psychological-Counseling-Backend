@@ -24,8 +24,11 @@ public final class ZipDownloadUtil {
             int index = 0;
             for (ClosingReport report : reports) {
                 index++;
-                String baseName = safeName(report.getStudentNo()) + "_"
-                        + safeName(report.getStudentName()) + "_" + report.getId();
+                String baseName = String.format("%s_%s_咨询师%d_%d",
+                        safeName(report.getStudentNo()),
+                        safeName(report.getStudentName()),
+                        report.getCounselorId() != null ? report.getCounselorId() : 0,
+                        report.getId());
                 String filePath = report.getFilePath();
                 File file = resolveFile(filePath, filesDir);
                 if (file != null && file.exists() && file.isFile()) {

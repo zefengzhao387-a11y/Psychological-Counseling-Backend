@@ -81,12 +81,22 @@ public class StatisticsController {
     }
 
     /**
-     * 导出 Excel
+     * 导出 Excel（结案报告数据）
      */
     @GetMapping("/export")
     public void export(StatisticsQueryDTO queryDTO, HttpServletResponse response) {
         log.info("统计分析-导出Excel");
         statisticsService.exportExcel(queryDTO, response);
+    }
+
+    /**
+     * 导出咨询师统计 Excel
+     */
+    @GetMapping("/export/counselor")
+    public void exportCounselor(StatisticsQueryDTO queryDTO, HttpServletResponse response) {
+        log.info("统计分析-导出咨询师统计Excel, 时间范围: {}~{}",
+                queryDTO.getClosingDateStart(), queryDTO.getClosingDateEnd());
+        statisticsService.exportCounselorExcel(queryDTO, response);
     }
 
     /**

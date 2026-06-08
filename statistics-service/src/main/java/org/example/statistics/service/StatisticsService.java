@@ -41,6 +41,11 @@ public interface StatisticsService {
     void exportExcel(StatisticsQueryDTO queryDTO, HttpServletResponse response);
 
     /**
+     * 导出咨询师统计 Excel
+     */
+    void exportCounselorExcel(StatisticsQueryDTO queryDTO, HttpServletResponse response);
+
+    /**
      * 批量下载结案报告 Word（Zip）
      */
     void batchDownloadZip(java.util.List<Long> ids, HttpServletResponse response);

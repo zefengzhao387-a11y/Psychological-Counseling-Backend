@@ -10,11 +10,20 @@ import java.time.LocalDateTime;
 @Data
 public class ClosingReportQueryDTO {
 
+    /** 咨询安排ID */
+    private Long appointmentId;
+
     /** 学号（模糊查询） */
     private String studentNo;
 
     /** 学生姓名（模糊查询） */
     private String studentName;
+
+    /** 性别 */
+    private String gender;
+
+    /** 年级（模糊查询） */
+    private String studentGrade;
 
     /** 咨询师ID */
     private Long counselorId;

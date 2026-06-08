@@ -1,6 +1,7 @@
 package org.example.consultation.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import jakarta.servlet.http.HttpServletResponse;
 import org.example.common.context.UserContext;
 import org.example.common.result.PageResult;
 import org.example.common.result.R;
@@ -102,7 +103,7 @@ public class ClosingReportController {
      * 删除结案报告（逻辑删除）
      */
     @DeleteMapping("/{id}")
-    public R<Void> delete(@PathVariable Long id) {
+    public R<String> delete(@PathVariable Long id) {
         service.delete(id);
         return R.ok();
     }
@@ -115,5 +116,13 @@ public class ClosingReportController {
     @PostMapping("/{id}/word")
     public R<String> generateWord(@PathVariable Long id) {
         return R.ok("Word已生成", service.generateWord(id));
+    }
+
+    /**
+     * 下载 Word 文档
+     */
+    @GetMapping("/{id}/download")
+    public void downloadWord(@PathVariable Long id, HttpServletResponse response) {
+        service.downloadWord(id, response);
     }
 }

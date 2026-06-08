@@ -5,11 +5,14 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.common.context.UserContext;
+import org.example.common.exception.BusinessException;
 import org.example.statistics.dto.CounselorStatsDTO;
 import org.example.statistics.dto.ProblemTypeStatsDTO;
 import org.example.statistics.dto.StatisticsQueryDTO;
 import org.example.statistics.dto.SummaryStatsDTO;
 import org.example.statistics.entity.ClosingReport;
+import org.example.statistics.feign.ConsultationFeignClient;
 import org.example.statistics.mapper.ClosingReportMapper;
 import org.example.statistics.service.StatisticsService;
 import org.example.statistics.util.ExcelExportUtil;
@@ -32,6 +35,7 @@ import java.util.stream.Collectors;
 public class StatisticsServiceImpl implements StatisticsService {
 
     private final ClosingReportMapper closingReportMapper;
+    private final ConsultationFeignClient consultationFeignClient;
 
     @Value("${closing-report.files-dir:./reports/}")
     private String reportFilesDir;
@@ -199,20 +203,65 @@ public class StatisticsServiceImpl implements StatisticsService {
     }
 
     @Override
+    public void exportCounselorExcel(StatisticsQueryDTO queryDTO, HttpServletResponse response) {
+        List<CounselorStatsDTO> stats = getCounselorStats(queryDTO);
+
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setCharacterEncoding("UTF-8");
+        String filename = "counselor_statistics_"
+                + java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"))
+                + ".xlsx";
+        response.setHeader("Content-Disposition", "attachment; filename=" + filename);
+
+        try {
+            ExcelExportUtil.exportCounselorStats(response.getOutputStream(), stats);
+            log.info("咨询师统计Excel导出成功，共{}条记录", stats.size());
+        } catch (Exception e) {
+            log.error("咨询师统计Excel导出失败", e);
+            throw new BusinessException("咨询师统计Excel导出失败: " + e.getMessage());
+        }
+    }
+
+    // ==================== 批量下载 ====================
+
+    @Override
     public void batchDownloadZip(List<Long> ids, HttpServletResponse response) {
         if (ids == null || ids.isEmpty()) {
-            throw new org.example.common.exception.BusinessException("请选择要下载的报告");
+            throw new BusinessException(400, "请选择要下载的报告");
         }
+
+        Long userId = UserContext.getUserId();
+        log.info("批量下载开始 - 请求报告数: {}, 操作人ID: {}", ids.size(), userId);
+        long startTime = System.currentTimeMillis();
+
         List<ClosingReport> reports = closingReportMapper.selectBatchIds(ids);
+        log.info("批量下载查询结果 - 找到{}份报告（请求{}份）", reports.size(), ids.size());
+
+        if (reports.isEmpty()) {
+            throw new BusinessException(400, "未找到任何可下载的报告");
+        }
+
+        // 记录缺失文件的报告
+        List<Long> missingFileIds = reports.stream()
+                .filter(r -> r.getFilePath() == null || r.getFilePath().isBlank())
+                .map(ClosingReport::getId)
+                .toList();
+        if (!missingFileIds.isEmpty()) {
+            log.warn("以下报告缺少Word文件: {}", missingFileIds);
+        }
+
         response.setContentType("application/zip");
         response.setCharacterEncoding("UTF-8");
         response.setHeader("Content-Disposition", "attachment; filename=closing-reports.zip");
+
         try {
             ZipDownloadUtil.downloadReportsZip(response.getOutputStream(), reports, reportFilesDir);
-            log.info("批量下载结案报告 {} 份", reports.size());
+            long elapsed = System.currentTimeMillis() - startTime;
+            log.info("批量下载完成 - 成功打包{}份报告, 耗时{}ms, 缺失文件{}份",
+                    reports.size(), elapsed, missingFileIds.size());
         } catch (Exception e) {
-            log.error("批量下载失败", e);
-            throw new RuntimeException("批量下载失败: " + e.getMessage());
+            log.error("批量下载失败 - 报告ID列表: {}, 错误: {}", ids, e.getMessage(), e);
+            throw new BusinessException("批量下载失败: " + e.getMessage());
         }
     }
 

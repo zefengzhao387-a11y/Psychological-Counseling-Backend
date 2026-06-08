@@ -72,7 +72,25 @@ public class DutyScheduleServiceImpl extends ServiceImpl<DutyScheduleMapper, Dut
 
     @Override
     public Long matchVisitor(AppointmentAddDTO dto) {
-        return matchAvailableVisitor(dto.getAppointmentDate(), dto.getTimeSlotId(), dto.getVisitorId());
+        List<DutySchedule> available = lambdaQuery()
+                .eq(DutySchedule::getDutyDate, dto.getAppointmentDate())
+                .eq(DutySchedule::getTimeSlotId, dto.getTimeSlotId())
+                .eq(DutySchedule::getCounselorType, 1) // 初访员
+                .apply("booked_count < max_appointments")
+                .list();
+        if (available.isEmpty()) {
+            throw new BusinessException("该时段暂无空闲初访员");
+        }
+        // 优先匹配 dto 指定的老师，否则选预约数最少的
+        if (dto.getVisitorId() != null) {
+            for (DutySchedule ds : available) {
+                if (ds.getCounselorId().equals(dto.getVisitorId())) {
+                    return ds.getId();
+                }
+            }
+        }
+        available.sort((a, b) -> a.getBookedCount() - b.getBookedCount());
+        return available.get(0).getId();
     }
 
     @Override
@@ -80,20 +98,18 @@ public class DutyScheduleServiceImpl extends ServiceImpl<DutyScheduleMapper, Dut
         List<DutySchedule> available = lambdaQuery()
                 .eq(DutySchedule::getDutyDate, date)
                 .eq(DutySchedule::getTimeSlotId, timeSlotId)
-                .eq(DutySchedule::getCounselorType, 1) // 初访员
+                .eq(DutySchedule::getCounselorType, 1)
                 .apply("booked_count < max_appointments")
                 .list();
         if (available.isEmpty()) {
             throw new BusinessException("该时段暂无空闲初访员");
         }
-        // 优先匹配指定的老师，否则选预约数最少的
         if (preferVisitorId != null) {
             for (DutySchedule ds : available) {
                 if (ds.getCounselorId().equals(preferVisitorId)) {
                     return ds.getId();
                 }
             }
-            throw new BusinessException("指定的初访员在该时段无空闲");
         }
         available.sort((a, b) -> a.getBookedCount() - b.getBookedCount());
         return available.get(0).getId();
@@ -102,27 +118,22 @@ public class DutyScheduleServiceImpl extends ServiceImpl<DutyScheduleMapper, Dut
     @Override
     @Transactional
     public Long findOrCreateBackupSlot(Long visitorId, LocalDate date, Long timeSlotId) {
-        // 先查找是否已有该初访员在该日期该时段的排班
+        // 先查找已有值班安排
         DutySchedule existing = lambdaQuery()
                 .eq(DutySchedule::getCounselorId, visitorId)
                 .eq(DutySchedule::getDutyDate, date)
                 .eq(DutySchedule::getTimeSlotId, timeSlotId)
-                .eq(DutySchedule::getCounselorType, 1)
                 .one();
         if (existing != null) {
-            // 已有排班，检查是否还有余量，有余量则直接使用
-            if (existing.getBookedCount() < existing.getMaxAppointments()) {
-                return existing.getId();
-            }
-            throw new BusinessException("该初访员此时段已约满");
+            return existing.getId();
         }
-        // 无排班则自动创建备班记录
+        // 创建备班记录
         DutySchedule backup = new DutySchedule();
         backup.setCounselorId(visitorId);
-        backup.setCounselorType(1); // 初访员
+        backup.setCounselorType(1);
         backup.setDutyDate(date);
         backup.setTimeSlotId(timeSlotId);
-        backup.setMaxAppointments(1); // 备班默认最大1人
+        backup.setMaxAppointments(4);
         backup.setBookedCount(0);
         save(backup);
         return backup.getId();

@@ -11,13 +11,18 @@ import org.example.consultation.dto.ClosingReportSaveDTO;
 import org.example.consultation.entity.ClosingReport;
 import org.example.consultation.mapper.ClosingReportMapper;
 import org.example.consultation.service.ClosingReportService;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.io.File;
-import java.io.FileOutputStream;
+import java.io.*;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
@@ -28,6 +33,13 @@ public class ClosingReportServiceImpl extends ServiceImpl<ClosingReportMapper, C
         implements ClosingReportService {
 
     private static final String REPORT_DIR = "./reports/";
+    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter DATE_ONLY_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
+    /** 问题类型名称映射 */
+    private static final String[] PROBLEM_TYPE_NAMES = {
+            "", "学业问题", "情绪问题", "人际关系", "恋爱问题", "职业发展", "自我成长", "家庭问题", "其他"
+    };
 
     // ==================== 查询 ====================
 
@@ -98,7 +110,7 @@ public class ClosingReportServiceImpl extends ServiceImpl<ClosingReportMapper, C
     @Transactional(rollbackFor = Exception.class)
     public ClosingReport update(Long id, ClosingReportSaveDTO saveDTO) {
         // 先查询确认存在
-        ClosingReport existing = this.getDetailById(id);
+        this.getDetailById(id);
 
         ClosingReport report = new ClosingReport();
         BeanUtil.copyProperties(saveDTO, report);
@@ -138,39 +150,79 @@ public class ClosingReportServiceImpl extends ServiceImpl<ClosingReportMapper, C
 
             XWPFDocument doc = new XWPFDocument();
 
-            // 标题
+            // ===== 标题 =====
             XWPFParagraph title = doc.createParagraph();
             title.setAlignment(ParagraphAlignment.CENTER);
-            XWPFRun run = title.createRun();
-            run.setText("心理咨询结案报告");
-            run.setBold(true);
-            run.setFontSize(16);
+            title.setSpacingAfter(200);
+            XWPFRun titleRun = title.createRun();
+            titleRun.setText("心理咨询结案报告");
+            titleRun.setBold(true);
+            titleRun.setFontSize(20);
+            titleRun.setFontFamily("SimHei");
 
-            // 基本信息表格
-            String[][] fields = {
-                    {"来访者学号", report.getStudentNo()},
-                    {"来访者姓名", report.getStudentName()},
-                    {"来访者性别", report.getGender()},
-                    {"来访者院系", report.getDepartment()},
-                    {"来访者联系电话", report.getPhone()},
-                    {"问题类型", getProblemTypeName(report.getProblemType())},
-                    {"咨询方式", report.getConsultationMethod() != null ? report.getConsultationMethod() : ""},
-                    {"咨询总次数", String.valueOf(report.getTotalSessions() != null ? report.getTotalSessions() : 0)},
-                    {"总咨询时长(小时)", report.getTotalHours() != null ? report.getTotalHours().toString() : "0"},
-                    {"结案原因", report.getClosingReason() != null ? report.getClosingReason() : ""},
-                    {"咨询效果自评", report.getSelfEvaluation() != null ? report.getSelfEvaluation() : ""},
-                    {"填表日期", java.time.LocalDate.now().toString()},
-            };
+            // ===== 空行 =====
+            XWPFParagraph blank = doc.createParagraph();
+            blank.setSpacingAfter(100);
 
-            XWPFTable table = doc.createTable(fields.length, 2);
-            table.setWidth("100%");
+            // ===== 一、学生基本信息 =====
+            addSectionHeading(doc, "一、学生基本信息");
+            XWPFTable table1 = createStyledTable(doc);
+            addTableRow(table1, 0, "学号", safeStr(report.getStudentNo()));
+            addTableRow(table1, 1, "姓名", safeStr(report.getStudentName()));
+            addTableRow(table1, 2, "性别", safeStr(report.getGender()));
+            addTableRow(table1, 3, "年级", safeStr(report.getStudentGrade()));
+            addTableRow(table1, 4, "院系", safeStr(report.getDepartment()));
+            addTableRow(table1, 5, "专业", safeStr(report.getStudentMajor()));
+            addTableRow(table1, 6, "联系电话", safeStr(report.getPhone()));
+            addTableRow(table1, 7, "电子邮箱", safeStr(report.getStudentEmail()));
+            doc.createParagraph().setSpacingAfter(100);
 
-            for (int i = 0; i < fields.length; i++) {
-                XWPFTableRow row = table.getRow(i);
-                row.getCell(0).setText(fields[i][0]);
-                row.getCell(1).setText(fields[i][1]);
-            }
+            // ===== 二、咨询基本信息 =====
+            addSectionHeading(doc, "二、咨询基本信息");
+            XWPFTable table2 = createStyledTable(doc);
+            addTableRow(table2, 0, "咨询安排ID", nvlStr(report.getAppointmentId()));
+            addTableRow(table2, 1, "咨询师ID", nvlStr(report.getCounselorId()));
+            addTableRow(table2, 2, "问题类型", getProblemTypeName(report.getProblemType()));
+            addTableRow(table2, 3, "咨询方式", safeStr(report.getConsultationMethod()));
+            addTableRow(table2, 4, "首次咨询日期", formatDateTime(report.getFirstConsultationDate()));
+            addTableRow(table2, 5, "结案日期", formatDateTime(report.getClosingDate()));
+            addTableRow(table2, 6, "咨询总次数", nvlStr(report.getTotalSessions()));
+            addTableRow(table2, 7, "总咨询时长（小时）", nvlDecimal(report.getTotalHours()));
+            doc.createParagraph().setSpacingAfter(100);
 
+            // ===== 三、结案核心内容 =====
+            addSectionHeading(doc, "三、结案核心内容");
+            XWPFTable table3 = createStyledTable(doc);
+            addTableRow(table3, 0, "结案原因", safeStr(report.getClosingReason()));
+            addTableRow(table3, 1, "结案原因详细说明", safeStr(report.getClosingReasonDetail()));
+            addTableRow(table3, 2, "个案摘要", safeStr(report.getCaseSummary()));
+            addTableRow(table3, 3, "咨询效果自评（来访者）", safeStr(report.getSelfEvaluation()));
+            addTableRow(table3, 4, "咨询效果评估（咨询师）", safeStr(report.getCounselingOutcome()));
+            addTableRow(table3, 5, "后续跟进计划", safeStr(report.getFollowUpPlan()));
+            addTableRow(table3, 6, "转介信息", safeStr(report.getReferralInfo()));
+            doc.createParagraph().setSpacingAfter(100);
+
+            // ===== 四、风险评估与审核 =====
+            addSectionHeading(doc, "四、风险评估与审核");
+            XWPFTable table4 = createStyledTable(doc);
+            addTableRow(table4, 0, "风险评估等级", safeStr(report.getRiskLevel()));
+            addTableRow(table4, 1, "风险备注", safeStr(report.getRiskNote()));
+            addTableRow(table4, 2, "报告状态", safeStr(report.getStatus()));
+            addTableRow(table4, 3, "审核人", safeStr(report.getReviewerName()));
+            addTableRow(table4, 4, "审核意见", safeStr(report.getReviewComment()));
+            addTableRow(table4, 5, "审核日期", formatDateTime(report.getReviewDate()));
+            doc.createParagraph().setSpacingAfter(200);
+
+            // ===== 页脚日期 =====
+            XWPFParagraph footer = doc.createParagraph();
+            footer.setAlignment(ParagraphAlignment.RIGHT);
+            XWPFRun footerRun = footer.createRun();
+            footerRun.setText("生成日期：" + LocalDateTime.now().format(DATE_FMT));
+            footerRun.setFontSize(10);
+            footerRun.setFontFamily("SimSun");
+            footerRun.setColor("888888");
+
+            // ===== 写入文件 =====
             try (FileOutputStream out = new FileOutputStream(filePath)) {
                 doc.write(out);
             }
@@ -178,6 +230,40 @@ public class ClosingReportServiceImpl extends ServiceImpl<ClosingReportMapper, C
             return filePath;
         } catch (Exception e) {
             throw new BusinessException("Word 生成失败: " + e.getMessage());
+        }
+    }
+
+    // ==================== Word 下载 ====================
+
+    @Override
+    public void downloadWord(Long reportId, jakarta.servlet.http.HttpServletResponse response) {
+        ClosingReport report = getDetailById(reportId);
+        String filePath = report.getFilePath();
+        if (!StringUtils.hasText(filePath)) {
+            throw new BusinessException(404, "该报告尚未生成Word文件，请先生成");
+        }
+        File file = new File(filePath);
+        if (!file.exists()) {
+            throw new BusinessException(404, "Word文件不存在，请重新生成");
+        }
+
+        response.setContentType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        response.setCharacterEncoding("UTF-8");
+        String encodedFileName = URLEncoder.encode(file.getName(), StandardCharsets.UTF_8)
+                .replaceAll("\\+", "%20");
+        response.setHeader("Content-Disposition",
+                "attachment; filename*=UTF-8''" + encodedFileName);
+
+        try (OutputStream out = response.getOutputStream();
+             FileInputStream in = new FileInputStream(file)) {
+            byte[] buffer = new byte[4096];
+            int len;
+            while ((len = in.read(buffer)) > 0) {
+                out.write(buffer, 0, len);
+            }
+            out.flush();
+        } catch (IOException e) {
+            throw new BusinessException("下载文件失败: " + e.getMessage());
         }
     }
 
@@ -189,10 +275,16 @@ public class ClosingReportServiceImpl extends ServiceImpl<ClosingReportMapper, C
     private LambdaQueryWrapper<ClosingReport> buildQueryWrapper(ClosingReportQueryDTO queryDTO) {
         LambdaQueryWrapper<ClosingReport> wrapper = new LambdaQueryWrapper<>();
 
-        wrapper.like(StringUtils.hasText(queryDTO.getStudentNo()),
+        wrapper.eq(queryDTO.getAppointmentId() != null,
+                        ClosingReport::getAppointmentId, queryDTO.getAppointmentId())
+                .like(StringUtils.hasText(queryDTO.getStudentNo()),
                         ClosingReport::getStudentNo, queryDTO.getStudentNo())
                 .like(StringUtils.hasText(queryDTO.getStudentName()),
                         ClosingReport::getStudentName, queryDTO.getStudentName())
+                .eq(StringUtils.hasText(queryDTO.getGender()),
+                        ClosingReport::getGender, queryDTO.getGender())
+                .like(StringUtils.hasText(queryDTO.getStudentGrade()),
+                        ClosingReport::getStudentGrade, queryDTO.getStudentGrade())
                 .eq(queryDTO.getCounselorId() != null,
                         ClosingReport::getCounselorId, queryDTO.getCounselorId())
                 .eq(queryDTO.getProblemType() != null,
@@ -222,9 +314,84 @@ public class ClosingReportServiceImpl extends ServiceImpl<ClosingReportMapper, C
         return wrapper;
     }
 
-    /**
-     * 设置默认值
-     */
+    // ---- Word 生成辅助方法 ----
+
+    /** 创建带边框样式的空表格 */
+    private XWPFTable createStyledTable(XWPFDocument doc) {
+        XWPFTable table = doc.createTable();
+        table.setWidth("100%");
+        // 设置表格边框
+        CTTbl ctTbl = table.getCTTbl();
+        CTTblPr tblPr = ctTbl.isSetTblPr() ? ctTbl.getTblPr() : ctTbl.addNewTblPr();
+        CTTblBorders borders = tblPr.addNewTblBorders();
+        setBorder(borders.addNewTop());
+        setBorder(borders.addNewBottom());
+        setBorder(borders.addNewLeft());
+        setBorder(borders.addNewRight());
+        setBorder(borders.addNewInsideH());
+        setBorder(borders.addNewInsideV());
+        return table;
+    }
+
+    private void setBorder(CTBorder border) {
+        border.setVal(STBorder.SINGLE);
+        border.setSz("4");
+        border.setColor("000000");
+    }
+
+    private XWPFTableRow addTableRow(XWPFTable table, int rowIdx, String label, String value) {
+        XWPFTableRow row = rowIdx < table.getNumberOfRows() ? table.getRow(rowIdx) : table.createRow();
+        // 确保两个单元格存在（createTable 默认只有 1 列）
+        XWPFTableCell cellLabel = row.getCell(0) != null ? row.getCell(0) : row.createCell();
+        XWPFTableCell cellValue = row.getCell(1) != null ? row.getCell(1) : row.createCell();
+
+        // 标签单元格样式
+        setCellText(cellLabel, label, true);
+
+        // 值单元格样式
+        setCellText(cellValue, value, false);
+
+        return row;
+    }
+
+    private void setCellText(XWPFTableCell cell, String text, boolean isLabel) {
+        // 清除默认段落
+        cell.removeParagraph(0);
+        XWPFParagraph para = cell.addParagraph();
+        para.setAlignment(ParagraphAlignment.LEFT);
+        // 垂直居中
+        cell.setVerticalAlignment(XWPFVertAlign.CENTER);
+
+        // 设置单元格宽度
+        CTTc ctTc = cell.getCTTc();
+        CTTcPr tcPr = ctTc.isSetTcPr() ? ctTc.getTcPr() : ctTc.addNewTcPr();
+        CTTblWidth width = tcPr.addNewTcWidth();
+        width.setW(isLabel ? java.math.BigInteger.valueOf(2500) : java.math.BigInteger.valueOf(7000));
+        width.setType(STTblWidth.DXA);
+
+        XWPFRun run = para.createRun();
+        run.setText(text != null ? text : "");
+        run.setFontFamily("SimSun");
+        run.setFontSize(11);
+        if (isLabel) {
+            run.setBold(true);
+        }
+    }
+
+    private void addSectionHeading(XWPFDocument doc, String text) {
+        XWPFParagraph para = doc.createParagraph();
+        para.setSpacingBefore(200);
+        para.setSpacingAfter(100);
+        XWPFRun run = para.createRun();
+        run.setText(text);
+        run.setBold(true);
+        run.setFontSize(14);
+        run.setFontFamily("SimHei");
+        // 下划线
+        run.setUnderline(UnderlinePatterns.SINGLE);
+    }
+
+    /** 设置默认值 */
     private void setDefaults(ClosingReport report) {
         if (!StringUtils.hasText(report.getConsultationMethod())) {
             report.setConsultationMethod("面对面");
@@ -243,11 +410,25 @@ public class ClosingReportServiceImpl extends ServiceImpl<ClosingReportMapper, C
         }
     }
 
-    /**
-     * 根据问题类型编码获取名称
-     */
+    // ---- 通用辅助方法 ----
+
+    private String safeStr(String s) {
+        return StringUtils.hasText(s) ? s : "";
+    }
+
+    private String nvlStr(Object val) {
+        return val != null ? val.toString() : "";
+    }
+
+    private String nvlDecimal(BigDecimal d) {
+        return d != null ? d.setScale(2, RoundingMode.HALF_UP).toString() : "0.00";
+    }
+
+    private String formatDateTime(LocalDateTime dt) {
+        return dt != null ? dt.format(DATE_FMT) : "";
+    }
+
     private String getProblemTypeName(Integer code) {
-        String[] names = {"", "学业问题", "情绪问题", "人际关系", "恋爱问题", "职业发展", "自我成长", "家庭问题", "其他"};
-        return code != null && code > 0 && code < names.length ? names[code] : String.valueOf(code);
+        return code != null && code > 0 && code < PROBLEM_TYPE_NAMES.length ? PROBLEM_TYPE_NAMES[code] : "未知";
     }
 }

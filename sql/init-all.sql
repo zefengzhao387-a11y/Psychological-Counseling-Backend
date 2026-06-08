@@ -20,7 +20,7 @@ DROP TABLE IF EXISTS `sys_user`;
 CREATE TABLE `sys_user` (
     `id`            BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
     `user_no`       VARCHAR(32)  NOT NULL COMMENT '学号/工号',
-    `username`      VARCHAR(32)  NOT NULL COMMENT '姓名',
+    `username`      VARCHAR(64)  NOT NULL COMMENT '姓名',
     `password`      VARCHAR(128) NOT NULL COMMENT '密码（MD5 加密）',
     `phone`         VARCHAR(16)  DEFAULT NULL COMMENT '手机号',
     `gender`        VARCHAR(4)   DEFAULT NULL COMMENT '性别：男/女',
