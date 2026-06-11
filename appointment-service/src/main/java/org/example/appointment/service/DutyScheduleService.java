@@ -13,8 +13,8 @@ public interface DutyScheduleService extends IService<DutySchedule> {
     void batchCreate(Long counselorId, Integer counselorType, LocalDate startDate, LocalDate endDate,
                      List<Long> timeSlotIds, Integer maxAppointments);
 
-    /** 查询某日某时段所有空闲老师 */
-    List<DutySchedule> listAvailable(LocalDate date, Long timeSlotId);
+    /** 查询某日某时段所有空闲老师（counselorType: 1初访员 2咨询师，默认不限） */
+    List<DutySchedule> listAvailable(LocalDate date, Long timeSlotId, Integer counselorType);
 
     /** 根据日期查询值班 */
     List<DutySchedule> listByDate(LocalDate date);

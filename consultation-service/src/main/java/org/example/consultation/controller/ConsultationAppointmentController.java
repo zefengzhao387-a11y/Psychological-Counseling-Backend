@@ -34,13 +34,16 @@ public class ConsultationAppointmentController {
         return R.ok();
     }
 
-    /** 咨询安排列表 */
+    /** 咨询安排列表；closableOnly=true 时返回可写结案报告的安排 */
     @GetMapping("/records")
     public R<PageResult<ConsultationAppointment>> listAll(
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "10") Integer size,
-            @RequestParam(required = false) Long counselorId) {
-        Page<ConsultationAppointment> result = service.listAll(page, size, counselorId);
+            @RequestParam(required = false) Long counselorId,
+            @RequestParam(required = false) Boolean closableOnly) {
+        Page<ConsultationAppointment> result = Boolean.TRUE.equals(closableOnly)
+                ? service.listClosableForReport(page, size, counselorId)
+                : service.listAll(page, size, counselorId);
         return R.ok(PageResult.of(result));
     }
 

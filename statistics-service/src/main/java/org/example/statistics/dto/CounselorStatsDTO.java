@@ -20,6 +20,9 @@ public class CounselorStatsDTO implements Serializable {
     /** 咨询师ID */
     private Long counselorId;
 
+    /** 咨询师姓名 */
+    private String counselorName;
+
     /** 报告总数 */
     private Long totalReports;
 

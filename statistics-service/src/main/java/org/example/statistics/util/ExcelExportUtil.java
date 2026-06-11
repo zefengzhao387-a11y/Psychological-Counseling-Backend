@@ -140,6 +140,7 @@ public class ExcelExportUtil {
             int c = 0;
             row.put(c++, String.valueOf(i + 1));
             row.put(c++, nvl(s.getCounselorId()));
+            row.put(c++, nvl(s.getCounselorName()));
             row.put(c++, nvl(s.getTotalReports()));
             row.put(c++, nvl(s.getClosedCount()));
             row.put(c++, nvl(s.getDropoutCount()));
@@ -159,6 +160,7 @@ public class ExcelExportUtil {
         List<List<String>> head = new ArrayList<>();
         head.add(singleHead("序号"));
         head.add(singleHead("咨询师ID"));
+        head.add(singleHead("咨询师姓名"));
         head.add(singleHead("报告总数"));
         head.add(singleHead("已结案数"));
         head.add(singleHead("脱落数"));

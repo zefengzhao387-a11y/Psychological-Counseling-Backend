@@ -34,3 +34,8 @@ knife4j:
 springdoc:
   swagger-ui:
     path: /doc.html
+
+service:
+  user-url: http://localhost:8081
+  consultation-url: http://localhost:8083
+  notification-url: http://localhost:8085

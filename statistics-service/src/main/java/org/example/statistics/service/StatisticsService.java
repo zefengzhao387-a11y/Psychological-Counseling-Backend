@@ -49,4 +49,9 @@ public interface StatisticsService {
      * 批量下载结案报告 Word（Zip）
      */
     void batchDownloadZip(java.util.List<Long> ids, HttpServletResponse response);
+
+    /**
+     * 同步结案报告（consultation-service 调用）
+     */
+    void syncClosingReport(org.example.common.feign.dto.ClosingReportSyncDTO dto);
 }

@@ -1,8 +1,9 @@
-package org.example.consultation.support;
+package org.example.common.support;
 
 import lombok.extern.slf4j.Slf4j;
 import org.example.common.feign.NotificationFeignClient;
 import org.example.common.feign.dto.SmsSendRequest;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Component;
 
 /**
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
+@ConditionalOnBean(NotificationFeignClient.class)
 public class NotificationSupport {
 
     private final NotificationFeignClient notificationFeignClient;
@@ -19,6 +21,10 @@ public class NotificationSupport {
     }
 
     public void sendSms(String phone, String content, String templateCode) {
+        if (phone == null || phone.isBlank()) {
+            log.warn("短信跳过：手机号为空，template={}", templateCode);
+            return;
+        }
         try {
             SmsSendRequest req = new SmsSendRequest();
             req.setPhone(phone);

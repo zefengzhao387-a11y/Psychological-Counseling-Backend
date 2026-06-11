@@ -21,6 +21,16 @@ public interface ConsultationAppointmentService extends IService<ConsultationApp
     /** 咨询安排列表（可按咨询师筛选） */
     Page<ConsultationAppointment> listAll(Integer page, Integer size, Long counselorId);
 
+    /** 可写结案报告的咨询安排（已结案且尚未关联报告） */
+    Page<ConsultationAppointment> listClosableForReport(Integer page, Integer size, Long counselorId);
+
     /** 改约咨询安排 */
     void updateArrangement(Long id, ArrangeDTO dto);
+
+    /** 校验咨询师时段是否冲突 */
+    void assertNoWeeklyConflict(Long counselorId, Long timeSlotId, java.time.LocalDate startDate,
+                                int weeks, Long excludeAppointmentId);
+
+    /** 自动匹配空闲咨询师 */
+    Long matchAvailableCounselor(Long timeSlotId, java.time.LocalDate startDate, int weeks);
 }

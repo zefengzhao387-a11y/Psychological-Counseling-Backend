@@ -45,4 +45,7 @@ public class FirstVisitForm extends BaseEntity {
 
     /** 同意时间 */
     private LocalDateTime consentTime;
+
+    /** 电子签名（姓名） */
+    private String consentSignature;
 }

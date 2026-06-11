@@ -42,8 +42,9 @@ public class DutyScheduleController {
     @GetMapping("/available")
     public R<List<DutySchedule>> listAvailable(
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date,
-            @RequestParam Long timeSlotId) {
-        return R.ok(dutyScheduleService.listAvailable(date, timeSlotId));
+            @RequestParam Long timeSlotId,
+            @RequestParam(required = false) Integer counselorType) {
+        return R.ok(dutyScheduleService.listAvailable(date, timeSlotId, counselorType));
     }
 
     /** 删除某条值班 */

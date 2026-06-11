@@ -4,6 +4,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 /**
  * 结案报告新增/修改 DTO
@@ -49,9 +50,11 @@ public class ClosingReportSaveDTO {
     private String consultationMethod;
 
     /** 首次咨询日期 */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime firstConsultationDate;
 
     /** 结案日期 */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime closingDate;
 
     // ==================== 咨询统计 ====================

@@ -17,4 +17,16 @@ public interface FirstVisitResultService extends IService<FirstVisitResult> {
 
     /** 标记已处理（无需安排/转介归档） */
     void markProcessed(Long id);
+
+    /** 初访员查看自己的评估记录 */
+    List<FirstVisitResult> listMyByVisitor(Long visitorId);
+
+    /** 初访员已评估的预约 ID */
+    List<Long> listEvaluatedAppointmentIds(Long visitorId);
+
+    /** 全部已有评估记录的初访预约 ID */
+    List<Long> listAllEvaluatedAppointmentIds();
+
+    /** 学生查看自己的初访评估结果 */
+    List<FirstVisitResult> listByStudent(Long studentId);
 }

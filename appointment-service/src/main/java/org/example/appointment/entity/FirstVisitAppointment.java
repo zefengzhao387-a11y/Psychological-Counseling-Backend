@@ -35,7 +35,7 @@ public class FirstVisitAppointment extends BaseEntity {
     /** 咨询地点 */
     private String location;
 
-    /** 状态：1待审核 2已通过 3已拒绝 4已撤销 */
+    /** 状态：1待审核 2已通过 3已拒绝 4已撤销 5已完成（初访评估已录入） */
     private Integer status;
 
     /** 是否优先排队 */

@@ -1,6 +1,7 @@
 package org.example.consultation.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import org.example.common.enums.ConsultationStatus;
 import org.example.common.exception.BusinessException;
 import org.example.consultation.dto.RecordDTO;
 import org.example.consultation.entity.ConsultationAppointment;
@@ -28,6 +29,9 @@ public class ConsultationRecordServiceImpl extends ServiceImpl<ConsultationRecor
     public ConsultationRecord record(Long counselorId, RecordDTO dto) {
         ConsultationAppointment app = appointmentService.getById(dto.getAppointmentId());
         if (app == null) throw new BusinessException("咨询安排不存在");
+        if (counselorId != null && app.getCounselorId() != null && !app.getCounselorId().equals(counselorId)) {
+            throw new BusinessException("无权录入此咨询安排的记录");
+        }
         if (app.getRemainingWeeks() <= 0 && app.getStatus() != 1) {
             throw new BusinessException("该咨询安排已结束");
         }
@@ -41,18 +45,17 @@ public class ConsultationRecordServiceImpl extends ServiceImpl<ConsultationRecor
         record.setCounselorNote(dto.getCounselorNote());
         save(record);
 
-        // 扣减剩余周数
-        if (app.getRemainingWeeks() > 0) {
+        int status = dto.getStatus() != null ? dto.getStatus() : ConsultationStatus.COMPLETED.getCode();
+        // 完成咨询才扣减剩余周数；旷约/请假不占用时段
+        if (status == ConsultationStatus.COMPLETED.getCode() && app.getRemainingWeeks() > 0) {
             app.setRemainingWeeks(app.getRemainingWeeks() - 1);
         }
 
-        // 结案：释放剩余时段
-        if (dto.getStatus() == 5) { // 结案
+        if (status == ConsultationStatus.CLOSED.getCode()) {
             app.setStatus(2);
             app.setRemainingWeeks(0);
         }
-        // 脱落：释放
-        if (dto.getStatus() == 4) { // 脱落
+        if (status == ConsultationStatus.DROPOUT.getCode()) {
             app.setStatus(3);
             app.setRemainingWeeks(0);
         }

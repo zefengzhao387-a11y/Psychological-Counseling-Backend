@@ -1,8 +1,10 @@
 package org.example.appointment.controller;
 
+import org.example.appointment.dto.ConsentConfirmDTO;
 import org.example.appointment.entity.FirstVisitForm;
 import org.example.appointment.service.FirstVisitFormService;
 import org.example.common.context.UserContext;
+import org.example.common.feign.dto.StudentProfileBriefDTO;
 import org.example.common.result.R;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,8 +31,9 @@ public class FirstVisitFormController {
 
     /** 学生确认知情同意书 */
     @PutMapping("/{id}/consent")
-    public R<Void> confirmConsent(@PathVariable Long id) {
-        formService.confirmConsent(id, UserContext.getUserId());
+    public R<Void> confirmConsent(@PathVariable Long id, @RequestBody(required = false) ConsentConfirmDTO dto) {
+        String signature = dto != null ? dto.getSignature() : null;
+        formService.confirmConsent(id, UserContext.getUserId(), signature);
         return R.ok();
     }
 
@@ -41,9 +44,23 @@ public class FirstVisitFormController {
         return R.ok(form);
     }
 
-    /** 查询登记表详情 */
+    /** 微服务内部：按学生 ID 获取登记表中的姓名学号 */
+    @GetMapping("/student/{studentId}/profile")
+    public R<StudentProfileBriefDTO> studentProfile(@PathVariable Long studentId) {
+        FirstVisitForm form = formService.getLatestByStudentId(studentId);
+        if (form == null) {
+            return R.ok(null);
+        }
+        StudentProfileBriefDTO profile = new StudentProfileBriefDTO();
+        profile.setStudentId(form.getStudentId());
+        profile.setStudentName(form.getStudentName());
+        profile.setStudentNo(form.getStudentNo());
+        return R.ok(profile);
+    }
+
+    /** 查询登记表详情（仅本人） */
     @GetMapping("/{id}")
     public R<FirstVisitForm> detail(@PathVariable Long id) {
-        return R.ok(formService.getById(id));
+        return R.ok(formService.getOwnedDetail(id, UserContext.getUserId()));
     }
 }

@@ -1,16 +1,19 @@
 package org.example.common.config;
 
+import org.example.common.config.FeignClientConfig;
 import org.example.common.filter.UserContextFilter;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 
 /**
  * common 模块自动配置（使 @RestControllerAdvice 等注解在各服务中生效）
  */
 @Configuration
 @ComponentScan(basePackages = "org.example.common")
+@Import(FeignClientConfig.class)
 public class CommonAutoConfiguration {
 
     /**

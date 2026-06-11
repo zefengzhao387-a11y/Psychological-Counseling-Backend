@@ -1,16 +1,22 @@
 package org.example.consultation.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.bean.copier.CopyOptions;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.apache.poi.xwpf.usermodel.*;
 import org.example.common.exception.BusinessException;
 import org.example.consultation.dto.ClosingReportQueryDTO;
+import org.example.consultation.dto.ClosingReportReviewDTO;
 import org.example.consultation.dto.ClosingReportSaveDTO;
 import org.example.consultation.entity.ClosingReport;
+import org.example.consultation.entity.ConsultationAppointment;
 import org.example.consultation.mapper.ClosingReportMapper;
+import org.example.consultation.mapper.ConsultationAppointmentMapper;
 import org.example.consultation.service.ClosingReportService;
+import org.example.common.support.StatisticsSyncSupport;
+import org.example.common.support.UserLookupSupport;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +24,7 @@ import org.springframework.util.StringUtils;
 
 import java.io.*;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -40,6 +47,21 @@ public class ClosingReportServiceImpl extends ServiceImpl<ClosingReportMapper, C
     private static final String[] PROBLEM_TYPE_NAMES = {
             "", "学业问题", "情绪问题", "人际关系", "恋爱问题", "职业发展", "自我成长", "家庭问题", "其他"
     };
+
+    private final StatisticsSyncSupport statisticsSyncSupport;
+    private final ConsultationAppointmentMapper consultationAppointmentMapper;
+    private final ClosingReportMapper closingReportMapper;
+    private final UserLookupSupport userLookupSupport;
+
+    public ClosingReportServiceImpl(StatisticsSyncSupport statisticsSyncSupport,
+                                    ConsultationAppointmentMapper consultationAppointmentMapper,
+                                    ClosingReportMapper closingReportMapper,
+                                    UserLookupSupport userLookupSupport) {
+        this.statisticsSyncSupport = statisticsSyncSupport;
+        this.consultationAppointmentMapper = consultationAppointmentMapper;
+        this.closingReportMapper = closingReportMapper;
+        this.userLookupSupport = userLookupSupport;
+    }
 
     // ==================== 查询 ====================
 
@@ -74,9 +96,10 @@ public class ClosingReportServiceImpl extends ServiceImpl<ClosingReportMapper, C
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public ClosingReport create(ClosingReportSaveDTO saveDTO) {
+    public ClosingReport create(Long counselorId, ClosingReportSaveDTO saveDTO) {
         ClosingReport report = new ClosingReport();
         BeanUtil.copyProperties(saveDTO, report);
+        report.setCounselorId(counselorId);
 
         // 设置默认值
         setDefaults(report);
@@ -84,24 +107,43 @@ public class ClosingReportServiceImpl extends ServiceImpl<ClosingReportMapper, C
         if (!this.save(report)) {
             throw new BusinessException("新增结案报告失败");
         }
-        return report;
+        syncIfSubmitted(this.getById(report.getId()));
+        return this.getById(report.getId());
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public ClosingReport submit(Long counselorId, ClosingReport report) {
-        report.setCounselorId(counselorId);
-        if (!StringUtils.hasText(report.getStatus())) {
-            report.setStatus("已提交");
+        ClosingReport target;
+        if (report.getId() != null) {
+            target = getDetailById(report.getId());
+            if (target.getCounselorId() != null && !target.getCounselorId().equals(counselorId)) {
+                throw new BusinessException("无权提交此报告");
+            }
+            if (!"草稿".equals(target.getStatus())) {
+                throw new BusinessException("仅草稿状态可提交");
+            }
+            BeanUtil.copyProperties(report, target, CopyOptions.create().ignoreNullValue());
+        } else {
+            target = report;
+            target.setCounselorId(counselorId);
+            setDefaults(target);
         }
-        save(report);
+        target.setCounselorId(counselorId);
+        target.setStatus("已提交");
 
-        // 生成 Word
-        String path = generateWord(report.getId());
-        report.setFilePath(path);
-        updateById(report);
+        if (target.getId() == null) {
+            save(target);
+        } else {
+            updateById(target);
+        }
 
-        return report;
+        String path = generateWord(target.getId());
+        target.setFilePath(path);
+        updateById(target);
+
+        syncIfSubmitted(getById(target.getId()));
+        return getById(target.getId());
     }
 
     // ==================== 修改 ====================
@@ -109,17 +151,22 @@ public class ClosingReportServiceImpl extends ServiceImpl<ClosingReportMapper, C
     @Override
     @Transactional(rollbackFor = Exception.class)
     public ClosingReport update(Long id, ClosingReportSaveDTO saveDTO) {
-        // 先查询确认存在
-        this.getDetailById(id);
+        ClosingReport existing = this.getDetailById(id);
 
         ClosingReport report = new ClosingReport();
         BeanUtil.copyProperties(saveDTO, report);
         report.setId(id);
 
+        if (saveDTO.getAppointmentId() != null) {
+            validateClosableAppointment(saveDTO.getAppointmentId(), existing.getCounselorId(), id);
+        }
+
         if (!this.updateById(report)) {
             throw new BusinessException("修改结案报告失败");
         }
-        return this.getById(id);
+        ClosingReport updated = this.getById(id);
+        syncIfSubmitted(updated);
+        return updated;
     }
 
     // ==================== 删除 ====================
@@ -227,6 +274,12 @@ public class ClosingReportServiceImpl extends ServiceImpl<ClosingReportMapper, C
                 doc.write(out);
             }
             doc.close();
+
+            ClosingReport pathUpdate = new ClosingReport();
+            pathUpdate.setId(reportId);
+            pathUpdate.setFilePath(filePath);
+            updateById(pathUpdate);
+
             return filePath;
         } catch (Exception e) {
             throw new BusinessException("Word 生成失败: " + e.getMessage());
@@ -265,6 +318,36 @@ public class ClosingReportServiceImpl extends ServiceImpl<ClosingReportMapper, C
         } catch (IOException e) {
             throw new BusinessException("下载文件失败: " + e.getMessage());
         }
+    }
+
+    @Override
+    public int resyncAllToStatistics() {
+        List<ClosingReport> reports = list(new LambdaQueryWrapper<ClosingReport>()
+                .ne(ClosingReport::getStatus, "草稿"));
+        for (ClosingReport report : reports) {
+            syncIfSubmitted(report);
+        }
+        return reports.size();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ClosingReport review(Long reviewerId, Long id, ClosingReportReviewDTO dto) {
+        ClosingReport report = getDetailById(id);
+        if (!"已提交".equals(report.getStatus())) {
+            throw new BusinessException("仅已提交的报告可审核");
+        }
+        if (!"已审核".equals(dto.getStatus()) && !"已驳回".equals(dto.getStatus())) {
+            throw new BusinessException("审核状态无效");
+        }
+        report.setStatus(dto.getStatus());
+        report.setReviewComment(dto.getReviewComment());
+        report.setReviewerId(reviewerId);
+        report.setReviewerName(userLookupSupport.getDisplayName(reviewerId));
+        report.setReviewDate(LocalDateTime.now());
+        updateById(report);
+        syncIfSubmitted(getById(id));
+        return getById(id);
     }
 
     // ==================== 私有方法 ====================
@@ -322,7 +405,7 @@ public class ClosingReportServiceImpl extends ServiceImpl<ClosingReportMapper, C
         table.setWidth("100%");
         // 设置表格边框
         CTTbl ctTbl = table.getCTTbl();
-        CTTblPr tblPr = ctTbl.isSetTblPr() ? ctTbl.getTblPr() : ctTbl.addNewTblPr();
+        CTTblPr tblPr = ctTbl.getTblPr() != null ? ctTbl.getTblPr() : ctTbl.addNewTblPr();
         CTTblBorders borders = tblPr.addNewTblBorders();
         setBorder(borders.addNewTop());
         setBorder(borders.addNewBottom());
@@ -335,7 +418,7 @@ public class ClosingReportServiceImpl extends ServiceImpl<ClosingReportMapper, C
 
     private void setBorder(CTBorder border) {
         border.setVal(STBorder.SINGLE);
-        border.setSz("4");
+        border.setSz(BigInteger.valueOf(4));
         border.setColor("000000");
     }
 
@@ -360,12 +443,12 @@ public class ClosingReportServiceImpl extends ServiceImpl<ClosingReportMapper, C
         XWPFParagraph para = cell.addParagraph();
         para.setAlignment(ParagraphAlignment.LEFT);
         // 垂直居中
-        cell.setVerticalAlignment(XWPFVertAlign.CENTER);
+        cell.setVerticalAlignment(XWPFTableCell.XWPFVertAlign.CENTER);
 
         // 设置单元格宽度
         CTTc ctTc = cell.getCTTc();
-        CTTcPr tcPr = ctTc.isSetTcPr() ? ctTc.getTcPr() : ctTc.addNewTcPr();
-        CTTblWidth width = tcPr.addNewTcWidth();
+        CTTcPr tcPr = ctTc.getTcPr() != null ? ctTc.getTcPr() : ctTc.addNewTcPr();
+        CTTblWidth width = tcPr.getTcW() != null ? tcPr.getTcW() : tcPr.addNewTcW();
         width.setW(isLabel ? java.math.BigInteger.valueOf(2500) : java.math.BigInteger.valueOf(7000));
         width.setType(STTblWidth.DXA);
 
@@ -402,11 +485,63 @@ public class ClosingReportServiceImpl extends ServiceImpl<ClosingReportMapper, C
         if (!StringUtils.hasText(report.getRiskLevel())) {
             report.setRiskLevel("低");
         }
+        if (!StringUtils.hasText(report.getSelfEvaluation())) {
+            report.setSelfEvaluation("暂无");
+        }
+        if (!StringUtils.hasText(report.getGender())) {
+            report.setGender("男");
+        }
+        if (!StringUtils.hasText(report.getDepartment())) {
+            report.setDepartment("未填写");
+        }
+        if (!StringUtils.hasText(report.getPhone())) {
+            report.setPhone("00000000000");
+        }
+        if (report.getAppointmentId() == null) {
+            throw new BusinessException("请填写咨询安排ID");
+        }
+        validateClosableAppointment(report.getAppointmentId(), report.getCounselorId(), null);
+        if (report.getClosingDate() == null) {
+            throw new BusinessException("请选择结案日期");
+        }
+        if (!StringUtils.hasText(report.getClosingReason())) {
+            throw new BusinessException("请选择结案原因");
+        }
         if (report.getTotalSessions() == null) {
             report.setTotalSessions(0);
         }
         if (report.getTotalHours() == null) {
             report.setTotalHours(BigDecimal.ZERO);
+        }
+    }
+
+    /** 非草稿状态同步至统计服务（提交/已审核等） */
+    private void syncIfSubmitted(ClosingReport report) {
+        if (report == null || !StringUtils.hasText(report.getStatus()) || "草稿".equals(report.getStatus())) {
+            return;
+        }
+        statisticsSyncSupport.syncClosingReport(report);
+    }
+
+    private void validateClosableAppointment(Long appointmentId, Long counselorId, Long excludeReportId) {
+        ConsultationAppointment appointment = consultationAppointmentMapper.selectById(appointmentId);
+        if (appointment == null) {
+            throw new BusinessException("关联的咨询安排不存在");
+        }
+        if (counselorId != null && appointment.getCounselorId() != null
+                && !appointment.getCounselorId().equals(counselorId)) {
+            throw new BusinessException("只能关联您负责的咨询安排");
+        }
+        if (appointment.getStatus() == null || (appointment.getStatus() != 2 && appointment.getStatus() != 3)) {
+            throw new BusinessException("只能关联已结束（结案/脱落）的咨询安排，请先在咨询记录中完成结案");
+        }
+        LambdaQueryWrapper<ClosingReport> wrapper = new LambdaQueryWrapper<ClosingReport>()
+                .eq(ClosingReport::getAppointmentId, appointmentId);
+        if (excludeReportId != null) {
+            wrapper.ne(ClosingReport::getId, excludeReportId);
+        }
+        if (closingReportMapper.selectCount(wrapper) > 0) {
+            throw new BusinessException("该咨询安排已有关联的结案报告");
         }
     }
 

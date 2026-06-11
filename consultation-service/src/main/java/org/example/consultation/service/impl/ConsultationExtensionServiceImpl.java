@@ -12,6 +12,7 @@ import org.example.consultation.service.ConsultationExtensionService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -55,8 +56,12 @@ public class ConsultationExtensionServiceImpl extends ServiceImpl<ConsultationEx
 
         if (dto.getStatus() == 2) { // 通过
             ext.setStatus(2);
-            // 追加周数
+            ext.setApproveRemark(dto.getRemark());
             ConsultationAppointment app = appointmentService.getById(ext.getAppointmentId());
+            LocalDate extensionStart = app.getStartDate().plusWeeks(app.getOccupiedWeeks());
+            appointmentService.assertNoWeeklyConflict(
+                    app.getCounselorId(), app.getTimeSlotId(), extensionStart,
+                    ext.getExtendWeeks(), app.getId());
             app.setRemainingWeeks(app.getRemainingWeeks() + ext.getExtendWeeks());
             app.setOccupiedWeeks(app.getOccupiedWeeks() + ext.getExtendWeeks());
             appointmentService.updateById(app);

@@ -27,7 +27,7 @@ public interface ClosingReportService extends IService<ClosingReport> {
     /**
      * 新增结案报告
      */
-    ClosingReport create(ClosingReportSaveDTO saveDTO);
+    ClosingReport create(Long counselorId, ClosingReportSaveDTO saveDTO);
 
     /**
      * 咨询师提交结案报告（提交后自动生成 Word）
@@ -55,7 +55,15 @@ public interface ClosingReportService extends IService<ClosingReport> {
     void downloadWord(Long reportId, HttpServletResponse response);
 
     /**
+     * 将咨询库中已提交/已审核的结案报告全量同步至统计库（补录用）
+     */
+    int resyncAllToStatistics();
+
+    /**
      * 按条件查询列表
      */
     List<ClosingReport> query(String studentNo, String studentName, Long counselorId, Integer problemType);
+
+    /** 管理员审核结案报告 */
+    ClosingReport review(Long reviewerId, Long id, org.example.consultation.dto.ClosingReportReviewDTO dto);
 }

@@ -39,12 +39,15 @@ public class DutyScheduleServiceImpl extends ServiceImpl<DutyScheduleMapper, Dut
     }
 
     @Override
-    public List<DutySchedule> listAvailable(LocalDate date, Long timeSlotId) {
-        return lambdaQuery()
+    public List<DutySchedule> listAvailable(LocalDate date, Long timeSlotId, Integer counselorType) {
+        var query = lambdaQuery()
                 .eq(DutySchedule::getDutyDate, date)
                 .eq(DutySchedule::getTimeSlotId, timeSlotId)
-                .apply("booked_count < max_appointments")
-                .list();
+                .apply("booked_count < max_appointments");
+        if (counselorType != null) {
+            query.eq(DutySchedule::getCounselorType, counselorType);
+        }
+        return query.list();
     }
 
     @Override

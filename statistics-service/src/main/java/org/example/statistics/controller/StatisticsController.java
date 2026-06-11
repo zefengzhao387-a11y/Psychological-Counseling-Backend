@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.common.feign.dto.ClosingReportSyncDTO;
 import org.example.common.result.PageResult;
 import org.example.common.result.R;
 import org.example.statistics.dto.CounselorStatsDTO;
@@ -106,5 +107,14 @@ public class StatisticsController {
     public void batchDownload(@RequestBody BatchDownloadDTO dto, HttpServletResponse response) {
         log.info("统计分析-批量下载 {} 份报告", dto.getIds() != null ? dto.getIds().size() : 0);
         statisticsService.batchDownloadZip(dto.getIds(), response);
+    }
+
+    /**
+     * 同步结案报告（consultation-service 内部调用）
+     */
+    @PostMapping("/report/sync")
+    public R<Void> syncReport(@RequestBody ClosingReportSyncDTO dto) {
+        statisticsService.syncClosingReport(dto);
+        return R.ok();
     }
 }

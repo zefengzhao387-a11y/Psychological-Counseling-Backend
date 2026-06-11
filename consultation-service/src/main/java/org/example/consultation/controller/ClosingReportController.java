@@ -6,6 +6,7 @@ import org.example.common.context.UserContext;
 import org.example.common.result.PageResult;
 import org.example.common.result.R;
 import org.example.consultation.dto.ClosingReportQueryDTO;
+import org.example.consultation.dto.ClosingReportReviewDTO;
 import org.example.consultation.dto.ClosingReportSaveDTO;
 import org.example.consultation.entity.ClosingReport;
 import org.example.consultation.service.ClosingReportService;
@@ -76,7 +77,7 @@ public class ClosingReportController {
      */
     @PostMapping
     public R<ClosingReport> create(@RequestBody ClosingReportSaveDTO saveDTO) {
-        return R.ok("新增成功", service.create(saveDTO));
+        return R.ok("新增成功", service.create(UserContext.getUserId(), saveDTO));
     }
 
     /**
@@ -106,6 +107,22 @@ public class ClosingReportController {
     public R<String> delete(@PathVariable Long id) {
         service.delete(id);
         return R.ok();
+    }
+
+    /**
+     * 管理员审核结案报告
+     */
+    @PutMapping("/{id}/review")
+    public R<ClosingReport> review(@PathVariable Long id, @RequestBody ClosingReportReviewDTO dto) {
+        return R.ok("审核完成", service.review(UserContext.getUserId(), id, dto));
+    }
+
+    /**
+     * 全量补同步至统计库（管理员）
+     */
+    @PostMapping("/sync-statistics")
+    public R<Integer> syncStatistics() {
+        return R.ok("同步完成", service.resyncAllToStatistics());
     }
 
     // ==================== Word 生成 ====================

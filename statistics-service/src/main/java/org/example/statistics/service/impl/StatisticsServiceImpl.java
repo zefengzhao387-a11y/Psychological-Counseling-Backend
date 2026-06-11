@@ -1,5 +1,6 @@
 package org.example.statistics.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.servlet.http.HttpServletResponse;
@@ -7,12 +8,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.common.context.UserContext;
 import org.example.common.exception.BusinessException;
+import org.example.common.feign.dto.ClosingReportSyncDTO;
+import org.example.common.support.UserLookupSupport;
 import org.example.statistics.dto.CounselorStatsDTO;
 import org.example.statistics.dto.ProblemTypeStatsDTO;
 import org.example.statistics.dto.StatisticsQueryDTO;
 import org.example.statistics.dto.SummaryStatsDTO;
 import org.example.statistics.entity.ClosingReport;
-import org.example.statistics.feign.ConsultationFeignClient;
 import org.example.statistics.mapper.ClosingReportMapper;
 import org.example.statistics.service.StatisticsService;
 import org.example.statistics.util.ExcelExportUtil;
@@ -35,7 +37,7 @@ import java.util.stream.Collectors;
 public class StatisticsServiceImpl implements StatisticsService {
 
     private final ClosingReportMapper closingReportMapper;
-    private final ConsultationFeignClient consultationFeignClient;
+    private final UserLookupSupport userLookupSupport;
 
     @Value("${closing-report.files-dir:./reports/}")
     private String reportFilesDir;
@@ -174,8 +176,11 @@ public class StatisticsServiceImpl implements StatisticsService {
                     .map(r -> r.getTotalHours() != null ? r.getTotalHours() : BigDecimal.ZERO)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-            result.add(new CounselorStatsDTO(counselorId, totalReports, closedCount,
-                    dropoutCount, totalHours, toJson(problemDist)));
+            CounselorStatsDTO stats = new CounselorStatsDTO(
+                    counselorId,
+                    counselorId != null && counselorId > 0 ? userLookupSupport.getDisplayName(counselorId) : null,
+                    totalReports, closedCount, dropoutCount, totalHours, toJson(problemDist));
+            result.add(stats);
         }
 
         result.sort((a, b) -> Long.compare(b.getTotalReports(), a.getTotalReports()));
@@ -323,5 +328,24 @@ public class StatisticsServiceImpl implements StatisticsService {
         }
         sb.append("}");
         return sb.toString();
+    }
+
+    @Override
+    public void syncClosingReport(ClosingReportSyncDTO dto) {
+        if (dto == null || dto.getId() == null) {
+            throw new BusinessException("同步数据无效");
+        }
+        ClosingReport entity = new ClosingReport();
+        BeanUtil.copyProperties(dto, entity);
+        if (entity.getDeleted() == null) {
+            entity.setDeleted(0);
+        }
+        ClosingReport existing = closingReportMapper.selectById(dto.getId());
+        if (existing == null) {
+            closingReportMapper.insert(entity);
+        } else {
+            closingReportMapper.updateById(entity);
+        }
+        log.info("已同步结案报告 id={} 至统计库", dto.getId());
     }
 }

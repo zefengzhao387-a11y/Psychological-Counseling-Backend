@@ -30,6 +30,9 @@ mybatis-plus:
 
 service:
   notification-url: http://localhost:8085
+  user-url: http://localhost:8081
+  statistics-url: http://localhost:8084
+  appointment-url: http://localhost:8082
 
 knife4j:
   enable: true

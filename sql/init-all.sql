@@ -185,7 +185,8 @@ CREATE TABLE `first_visit_result` (
     `deleted`        TINYINT   NOT NULL DEFAULT 0 COMMENT '逻辑删除',
     PRIMARY KEY (`id`),
     KEY `idx_appointment_id` (`appointment_id`),
-    KEY `idx_student_id` (`student_id`)
+    KEY `idx_student_id` (`student_id`),
+    UNIQUE KEY `uk_appointment_id` (`appointment_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='初访评估结果表';
 
 -- 3.2 咨询安排记录表
@@ -202,6 +203,7 @@ CREATE TABLE `consultation_appointment` (
     `occupied_weeks`        INT          NOT NULL DEFAULT 8 COMMENT '占用总周数',
     `remaining_weeks`       INT          NOT NULL DEFAULT 8 COMMENT '剩余周数',
     `status`                TINYINT      NOT NULL DEFAULT 1 COMMENT '状态：1进行中 2已结案 3已脱落',
+    `notify_time`           DATETIME     DEFAULT NULL COMMENT '短信通知时间',
     `create_time`           DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `update_time`           DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `deleted`               TINYINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除',

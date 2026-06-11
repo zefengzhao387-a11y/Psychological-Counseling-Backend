@@ -1,5 +1,6 @@
 package org.example.consultation.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.example.common.base.BaseEntity;
@@ -34,4 +35,16 @@ public class ConsultationAppointment extends BaseEntity {
     private Integer status;
     /** 短信通知时间 */
     private LocalDateTime notifyTime;
+
+    @TableField(exist = false)
+    private String studentName;
+
+    @TableField(exist = false)
+    private String studentNo;
+
+    @TableField(exist = false)
+    private String counselorName;
+
+    @TableField(exist = false)
+    private String timeSlotName;
 }

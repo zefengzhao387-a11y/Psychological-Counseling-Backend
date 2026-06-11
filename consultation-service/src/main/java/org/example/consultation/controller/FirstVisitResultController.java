@@ -45,4 +45,29 @@ public class FirstVisitResultController {
         service.markProcessed(id);
         return R.ok();
     }
+
+    /** 初访员查看自己的评估记录 */
+    @GetMapping("/my")
+    public R<List<FirstVisitResult>> listMy() {
+        return R.ok(service.listMyByVisitor(UserContext.getUserId()));
+    }
+
+    /** 学生查看自己的初访评估结果 */
+    @GetMapping("/student/my")
+    public R<List<FirstVisitResult>> listStudentMy() {
+        return R.ok(service.listByStudent(UserContext.getUserId()));
+    }
+
+    /** 初访员已评估的预约 ID（appointment-service 过滤待办用） */
+    @GetMapping("/evaluated-appointment-ids")
+    public R<List<Long>> listEvaluatedAppointmentIds(@RequestParam(required = false) Long visitorId) {
+        Long id = visitorId != null ? visitorId : UserContext.getUserId();
+        return R.ok(service.listEvaluatedAppointmentIds(id));
+    }
+
+    /** 服务间调用：全部已评估预约 ID */
+    @GetMapping("/internal/evaluated-appointment-ids")
+    public R<List<Long>> listAllEvaluatedAppointmentIds() {
+        return R.ok(service.listAllEvaluatedAppointmentIds());
+    }
 }

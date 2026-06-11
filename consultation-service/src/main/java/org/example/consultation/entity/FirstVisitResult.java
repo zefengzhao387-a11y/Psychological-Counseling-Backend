@@ -1,5 +1,6 @@
 package org.example.consultation.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.example.common.base.BaseEntity;
@@ -27,4 +28,12 @@ public class FirstVisitResult extends BaseEntity {
     /** 心理助理处理状态：0待处理 1已安排 2已标记无需安排 */
     private Integer assistantStatus;
     private String remark;
+
+    /** 展示用：学生姓名（非表字段） */
+    @TableField(exist = false)
+    private String studentName;
+
+    /** 展示用：学号（非表字段） */
+    @TableField(exist = false)
+    private String studentNo;
 }

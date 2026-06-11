@@ -5,6 +5,7 @@ import org.example.appointment.dto.*;
 import org.example.appointment.service.FirstVisitAppointmentService;
 import org.example.common.context.UserContext;
 import org.example.common.result.PageResult;
+import org.example.common.feign.dto.FirstVisitAppointmentBriefDTO;
 import org.example.common.result.R;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
@@ -128,5 +129,27 @@ public class FirstVisitAppointmentController {
             @RequestParam Long studentId,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date) {
         return R.ok(appointmentService.getTodayAppointment(studentId, date));
+    }
+
+    // ==================== 初访员端 ====================
+
+    /** 初访员查看分配给自己的已通过预约 */
+    @GetMapping("/visitor")
+    public R<List<AppointmentVO>> listForVisitor() {
+        Long visitorId = UserContext.getUserId();
+        return R.ok(appointmentService.listForVisitor(visitorId));
+    }
+
+    /** 初访评估完成后标记为已完成（内部服务调用） */
+    @PutMapping("/{id}/complete")
+    public R<Void> complete(@PathVariable Long id) {
+        appointmentService.markCompleted(id);
+        return R.ok();
+    }
+
+    /** 服务间：获取预约简要信息 */
+    @GetMapping("/internal/{id}")
+    public R<FirstVisitAppointmentBriefDTO> getBrief(@PathVariable Long id) {
+        return R.ok(appointmentService.getBrief(id));
     }
 }

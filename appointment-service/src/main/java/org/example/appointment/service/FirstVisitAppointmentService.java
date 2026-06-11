@@ -2,6 +2,7 @@ package org.example.appointment.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
+import org.example.common.feign.dto.FirstVisitAppointmentBriefDTO;
 import org.example.appointment.dto.*;
 import org.example.appointment.entity.FirstVisitAppointment;
 
@@ -55,4 +56,13 @@ public interface FirstVisitAppointmentService extends IService<FirstVisitAppoint
 
     /** 获取某学生今日是否有已通过预约 */
     AppointmentVO getTodayAppointment(Long studentId, java.time.LocalDate date);
+
+    /** 初访员查看分配给自己的已通过预约 */
+    List<AppointmentVO> listForVisitor(Long visitorId);
+
+    /** 初访完成后标记预约为已完成（consultation-service 调用） */
+    void markCompleted(Long appointmentId);
+
+    /** 服务间：预约简要信息 */
+    FirstVisitAppointmentBriefDTO getBrief(Long appointmentId);
 }

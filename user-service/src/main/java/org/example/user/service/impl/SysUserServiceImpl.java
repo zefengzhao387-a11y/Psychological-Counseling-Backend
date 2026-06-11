@@ -47,14 +47,27 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         if (!StringUtils.hasText(dto.getUserNo()) || !StringUtils.hasText(dto.getPassword())) {
             throw new BusinessException("学号和密码不能为空");
         }
+        if (!StringUtils.hasText(dto.getUsername())) {
+            throw new BusinessException("姓名不能为空");
+        }
+        if (!StringUtils.hasText(dto.getPhone())) {
+            throw new BusinessException("手机号不能为空");
+        }
+        if (!StringUtils.hasText(dto.getDepartment())) {
+            throw new BusinessException("院系不能为空");
+        }
+        if (dto.getPassword().length() < 6) {
+            throw new BusinessException("密码长度不能少于6位");
+        }
         if (getByUserNo(dto.getUserNo()) != null) {
             throw new BusinessException("该学号已注册");
         }
         SysUser user = new SysUser();
         user.setUserNo(dto.getUserNo());
-        user.setUsername(StringUtils.hasText(dto.getUsername()) ? dto.getUsername() : dto.getUserNo());
+        user.setUsername(dto.getUsername());
         user.setPassword(DigestUtils.md5DigestAsHex(dto.getPassword().getBytes()));
         user.setPhone(dto.getPhone());
+        user.setGender(StringUtils.hasText(dto.getGender()) ? dto.getGender() : "男");
         user.setDepartment(dto.getDepartment());
         user.setRoleCode(UserRole.STUDENT.getCode());
         save(user);
